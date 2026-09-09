@@ -1,0 +1,316 @@
+---
+title: "Análisis Estadístico de Datos - Taller 2"
+author: "Adriana Porras, Alejandra Niño, Bayron Morales, Juliana Cárdenas"
+output:
+  pdf_document:
+    latex_engine: xelatex
+---
+
+## Datos del taller
+
+Para el desarrollo del siguiente taller se emplea la base de datos ORI.csv que contiene información de variables meteorológicas medidas en diferentes lugares de Colombia. Cada observación en la base corresponde a la medición en un momento del día determinado en un municipio de una región dada.Se tienen, entre otras, las siguientes variables variables: Temperatura, Velocidad del viento, Dirección del viento, Presión, Punto de Rocío, Cobertura total nubosa, Humedad.
+
+```{r setup, include=FALSE}
+# Configuración global: mostrar código
+knitr::opts_chunk$set(echo = TRUE)
+Sys.setlocale("LC_CTYPE", "Spanish_Colombia.utf8")
+```
+
+```{r librerias, echo=TRUE, results='hide', message=FALSE, warning=FALSE}
+# Cargar paquetes
+
+library(tidyverse)
+library(ggplot2)
+#library(ggExtra)
+#library(psych)
+#library(MVN)
+library(dplyr)
+
+```
+
+------------------------------------------------------------------------
+
+## Parte 1. Fundamentos estadísticos
+
+#### Pregunta 1. Importe la base de datos a R y determine el número de UE (Unidades estadísticas) y de variables en la base de datos. ¿Cuántas filas y cuántas columnas tiene la tabla?, ¿Cuántos registros fueron medidos o recolectados a medio día (hora = 12:00)?
+
+```{r Lectura}
+
+ORI <- read.csv("ORI.csv",header=TRUE, sep=";", fileEncoding = "Latin1")
+print(paste0('El número de UE para ORI es ', nrow(ORI), 
+             ' y el número de variables es ', length(ORI)))
+```
+
+```{r}
+
+ORI_MedioDia <- ORI %>% filter(Hora == "12:00")
+print(paste0('El número de registros recolectados a medio día es ', nrow(ORI_MedioDia)))
+      
+```
+
+#### Pregunta 2. Para los registros recolectados a medio día ¿cuál es el pronóstico climático más frecuente? ¿cuál es el menos frecuente?
+
+```{r}
+frecuencias_MDP <- table(ORI_MedioDia$Pronostico)
+
+print(paste0("Pronóstico climático más frecuente: ", 
+             names(frecuencias_MDP)[which.max(frecuencias_MDP)], 
+             " - ", max(frecuencias_MDP), " casos"))
+
+print(paste0("Pronóstico climático menos frecuente: ", 
+             names(frecuencias_MDP)[which.min(frecuencias_MDP)], 
+             " - ", min(frecuencias_MDP), " casos"))
+```
+
+Esto se puede observar también graficamente:
+
+```{r echo=FALSE}
+
+ggplot(ORI_MedioDia, aes(x = Pronostico)) +
+  geom_bar(
+    fill = "#DA0921",
+    color = "white"
+  ) +
+  geom_text(
+    stat = "count",
+    aes(label = after_stat(count)),
+    hjust = -0.2
+  ) +
+  coord_flip() +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  labs(
+    title = "Distribución del pronóstico climático",
+    x = "Pronóstico",
+    y = "Frecuencia"
+  ) +
+  theme_minimal()
+```
+
+#### Pregunta 3. Clasifique las variables 1) Pronóstico: Pronóstico del clima, 2) Municipio: Municipio de medición, 3) Temperatura: Temperatura medida en grados centígrados y 4) Velocidad del viento: Velocidad del viento medida en mph, según su escala y clase.
+
+```{r Clasificación variables, echo=FALSE}
+tabla_variables <- data.frame(
+  Variable = c(
+    "Pronóstico",
+    "Municipio",
+    "Temperatura",
+    "Velocidad del viento"),
+  Escala = c(
+    "Ordinal",
+    "Nominal",
+    "Intervalo",
+    "Razón"),
+  Clase = c(
+    "Politómica",
+    "Politómica",
+    "Discreta",
+    "Continua"))
+
+knitr::kable(
+  tabla_variables,
+  caption = "Clasificación de las variables")
+
+```
+
+#### Pregunta 4. Para los registros recolectados a medio día, describa de manera gráfica la temperatura y la velocidad del viento univariadamente a partir de un diagrama de caja. ¿Qué características observa los datos en términos de centro, localización y dispersión?
+
+```{r Función Boxplot}
+
+# Crear una función para los boxplots
+
+boxplot_estadisticos <- function(datos, variable, titulo, subtitulo, etiqueta_x) {
+  
+  valores <- datos[[variable]]
+  
+  estadisticos <- boxplot.stats(valores)$stats
+  
+  etiquetas <- data.frame(
+    x = as.numeric(estadisticos),
+    y = 1.18,
+    etiqueta = c(
+      paste0("Mín: ", round(estadisticos[1], 1)),
+      paste0("Q1: ", round(estadisticos[2], 1)),
+      paste0("Q2: ", round(estadisticos[3], 1)),
+      paste0("Q3: ", round(estadisticos[4], 1)),
+      paste0("Máx: ", round(estadisticos[5], 1))))
+  
+  ggplot(datos, aes(x = .data[[variable]], y = 1)) +
+    
+    geom_boxplot(
+      fill = "#DA0921",
+      color = "#950606",
+      width = 0.35) +
+    
+    geom_segment(
+      data = etiquetas,
+      aes(
+        x = x,
+        xend = x,
+        y = 0.82,
+        yend = 1.18
+      ),
+      color = "#950606",
+      linewidth = 0.5,
+      linetype = "dashed") +
+    
+    geom_text(
+      data = etiquetas,
+      aes(
+        x = x,
+        y = y,
+        label = etiqueta
+      ),
+      size = 3.5,
+      fontface = "bold",
+      color = "#950606") +
+    
+    labs(
+      title = titulo,
+      subtitle = subtitulo,
+      x = etiqueta_x,
+      y = NULL) +
+    
+    theme_minimal() +
+    
+    theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 14,
+        hjust = 0.5),
+      plot.subtitle = element_text(
+        size = 11,
+        hjust = 0.5),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.title.x = element_text(face = "bold"),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_blank()
+    )
+}
+```
+
+```{r Boxplot Temperatura, echo=FALSE}
+boxplot_estadisticos(
+  ORI_MedioDia,
+  "Temperatura",
+  "Distribución de la temperatura",
+  "Registros recolectados al medio día",
+  "Temperatura (°C)")
+```
+
+**Temperatura**:
+
+La temperatura presenta una mediana de 30.4 °C, lo que indica que el 50% de las observaciones se encuentran por encima y el 50% por debajo. La mediana se ubica más cerca a Q3, lo cual sugiere una distribución asimétrica hacia valores superiores .
+
+El 50 % de las observaciones se concentran entre 31.3°C y 28.8°C, con un rango intercuartílico de 2.5°C, lo cual sugiere una dispersión pequeña. Además, se observan 6 datos atípicos, los cuales están más de 1.5 veces por debajo de Q1.
+
+```{r Boxplot Velocidad Viento, echo=FALSE}
+
+boxplot_estadisticos(
+  ORI_MedioDia,
+  "Velocidad_del_Viento",
+  "Distribución de la velocidad del viento",
+  "Registros recolectados al medio día",
+  "Velocidad del viento")
+```
+
+**Velocidad del viento**:
+
+La velocidad del viento presenta una mediana de 1.7 mph, lo que indica que el 50% de las observaciones se encuentran por encima y el 50% por debajo. La mediana se ubica más cerca a Q3, lo cual sugiere una distribución asimétrica hacia valores superiores, aunque esta asimetría es menor a la observada en el caso de la temperatura.
+
+El 50 % de las observaciones se concentran entre 1 mph y 2.2 mph, con un rango intercuartílico de 1.2 mph, lo cual sugiere una dispersión moderada. No se observan valores atípicos.
+
+#### Pregunta 5. Para los registros recolectados a medio día, describa de manera numérica mediante la función summary() la temperatura y la velocidad del viento univariadamente. ¿Concuerda su descripción con los gráficos de boxplot previamente presentados?
+
+```{r}
+
+summary(ORI_MedioDia$Temperatura)
+```
+
+```{r}
+
+summary(ORI_MedioDia$Velocidad_del_Viento)
+```
+
+Para el caso de la *velocidad del viento*, los datos descritos coinciden integramente con los del boxplot, sin embargo, para la *temperatura*, varía el mínimo identificado, esto se debe a que el boxplot no presenta el mínimo y máximo reales de los datos, sino que presenta los extremos de los bigotes, excluyendo los valores atípicos. Esto permite deducir que la velocidad del viento no presenta valores atípicos, pero la temperatura sí, especifícamente hacia el extremo inferior.
+
+#### Pregunta 6. Para los registros recolectados a medio día, determine si existen o no observaciones atípicas univariadas para la variables Presión y Punto de Rocio usando el diagrama de caja de Tukey. ¿cuál variable presenta mayor número de atipicidades?
+
+```{r Boxplot Presión, echo=FALSE}
+
+boxplot_estadisticos(
+  ORI_MedioDia,
+  "Presion",
+  "Distribución de la presión",
+  "Registros recolectados al medio día",
+  "Presión")
+  
+```
+
+```{r}
+
+print(paste0('El número de atipicidades de la Temperatura es: ',
+             length(boxplot(ORI_MedioDia$Presion,plot=FALSE)$out)))
+```
+
+```{r Boxplot PuntoRocio, echo=FALSE}
+
+boxplot_estadisticos(
+  ORI_MedioDia,
+  "Punto_de_Rocio",
+  "Distribución del punto de rocio",
+  "Registros recolectados al medio día",
+  "Punto de Rocio")
+
+```
+
+```{r}
+
+print(paste0('El número de atipicidades del Punto de rocío es: ',
+             length(boxplot(ORI_MedioDia$Punto_de_Rocio,plot=FALSE)$out)))
+```
+
+La variable *Presión* presenta 1 dato atípico, mientras que la variable *Punto de rocío* no presenta ningún dato atípico.
+
+#### Pregunta 7. Para los registros recolectados a medio día, describa de manera gráfica la asociación entre la temperatura y velocidad del viento a partir de un diagrama de dispersión entre las variables. Añada el histograma marginal de cada variable. ¿Parecen correlacionarse las dos variables?
+
+```{r}
+
+```
+
+#### Pregunta 8. Para los registros recolectados a medio día, describa de manera numérica la asociación entre temperatura y velocidad del viento a partir de la covarianza y el coeficiente de correlación de Pearson. ¿Parecen correlacionarse las dos variables? ¿en qué unidades se encuentran cada una de las dos medidas anteriormente mencionadas?
+
+```{r}
+
+```
+
+#### Pregunta 9. Para los registros recolectados a medio día, responda. Son estos datos ¿univariados, bivariados o multivariados?
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+## Parte 2. Estimación de la densidad
+
+#### Pregunta 10. Para los registros recolectados a medio día, elabore la estimación histograma de la densidad y la estimación kernel de la densidad para la variable Temperatura. ¿Podría afirmar que los datos provienen de una distribución normal?
+
+```{r}
+
+```
+
+#### Pregunta 11. Para los registros recolectados a medio día, elabore la estimación histograma de la densidad y la estimación kernel de la densidad para la variable Presión ¿Es la distribución estimada simétrica? explique.
+
+```{r}
+
+```
+
+#### Pregunta 12. Para los registros recolectados a medio día, elabore la estimación kernel de la densidad para la variable Velocidad del viento. Sobreponga en su gráfico la función de densidad normal con la media y desviación estándar observada en sus datos. ¿Se aproxima el modelo normal estimado a la estimación de la densidad encontrada?
+
+```{r}
+
+```
