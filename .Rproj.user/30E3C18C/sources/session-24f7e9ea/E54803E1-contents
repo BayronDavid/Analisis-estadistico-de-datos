@@ -1,0 +1,503 @@
+---
+title: "Análisis Estadístico de Datos - Taller 1"
+author: "Adriana Porras, Alejandra Niño, Bayron Morales, Juliana Cárdenas"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    keep_tex: true
+---
+
+## Datos del taller
+
+Para el desarrollo del siguiente taller se emplea la base de datos ORI.csv, que contiene información de variables meteorológicas medidas en diferentes lugares de Colombia. Cada observación de la base corresponde a la medición en un momento del día determinado, en un municipio de una región dada. Se tienen, entre otras, las siguientes variables: Temperatura, Velocidad del viento, Dirección del viento, Presión, Punto de Rocío, Cobertura total nubosa y Humedad.
+
+```{r setup, include=FALSE}
+# Mostrar el código de cada bloque en el documento final
+knitr::opts_chunk$set(
+	echo = TRUE,
+	fig.align = "center",
+	message = FALSE,
+	warning = FALSE
+)
+Sys.setlocale("LC_CTYPE", "Spanish_Colombia.utf8")
+```
+
+```{r librerias, message=FALSE, warning=FALSE, paged.print=FALSE}
+# Todas las demás preguntas usan funciones básicas de R. Los únicos paquetes
+# que se necesitan son para el histograma marginal de la pregunta 7:
+
+# install.packages("ggExtra")   <- ejecutar UNA VEZ en la consola, no aquí
+library(ggplot2)
+library(ggExtra)
+```
+
+```{r colores}
+# Colores usados en todos los gráficos del taller
+rojo        <- "#DA0921"
+rojo_oscuro <- "#950606"
+```
+
+------------------------------------------------------------------------
+
+## Parte 1. Fundamentos estadísticos
+
+\noindent\textbf{Pregunta 1. Importe la base de datos a R y determine el número de UE (Unidades estadísticas) y de variables en la base de datos. ¿Cuántas filas y cuántas columnas tiene la tabla?, ¿Cuántos registros fueron medidos o recolectados a medio día (hora = 12:00)?}
+
+```{r lectura}
+ORI <- read.csv("ORI.csv", header = TRUE, sep = ";", fileEncoding = "Latin1")
+
+# El encabezado del archivo trae un espacio sobrando en la última columna.
+# Esta línea limpia los nombres para poder escribir ORI$Pronostico sin problemas.
+names(ORI) <- trimws(names(ORI))
+
+nrow(ORI)   # número de UE (filas)
+ncol(ORI)   # número de variables (columnas)
+
+print(paste0('El número de UE para ORI es ',nrow(ORI),' y el numero de variables es ',ncol(ORI)))
+```
+
+```{r medio-dia}
+# Nos quedamos solo con las filas medidas a las 12:00
+ORI_MedioDia <- ORI[ORI$Hora == "12:00", ]
+
+nrow(ORI_MedioDia)
+print(paste0('El número de registros recolectados a medio día es de ',nrow(ORI_MedioDia)))
+```
+
+\noindent\textbf{Pregunta 2. Para los registros recolectados a medio día ¿cuál es el pronóstico climático más frecuente? ¿cuál es el menos frecuente?¨}
+
+```{r tabla-pronostico}
+frecuencias <- table(ORI_MedioDia$Pronostico)
+
+sort(frecuencias, decreasing = TRUE)
+```
+
+```{r extremos-pronostico}
+
+frecuencias_MDP <- table(ORI_MedioDia$Pronostico)
+
+print(paste0("Pronóstico climático más frecuente: ", 
+             names(frecuencias_MDP)[which.max(frecuencias_MDP)], 
+             " - ", max(frecuencias_MDP), " casos")) # pronóstico más frecuente
+
+print(paste0("Pronóstico climático menos frecuente: ", 
+             names(frecuencias_MDP)[which.min(frecuencias_MDP)], 
+             " - ", min(frecuencias_MDP), " casos")) # pronóstico menos frecuente
+
+```
+
+Esto se puede observar también graficamente:
+
+```{r, fig.width=7, fig.height=3.2, fig.align="center"}
+
+ggplot(ORI_MedioDia, aes(x = Pronostico)) +
+  geom_bar(
+    fill = rojo,
+    color = "white"
+  ) +
+  geom_text(
+    stat = "count",
+    aes(label = after_stat(count)),
+    hjust = -0.2
+  ) +
+  coord_flip() +
+  scale_y_continuous(
+    expand = expansion(mult = c(0, 0.08))
+  ) +
+  labs(
+    title = "Distribución del pronóstico climático",
+    x = "Pronóstico",
+    y = "Frecuencia"
+  ) +
+  theme_minimal()
+```
+
+El pronóstico más frecuente al medio día es **Parcialmente Nublado**, con 63 de los 118 registros (más de la mitad). El menos frecuente es **Parcialmente Nublado - Tormenta Ligera**, con 2 registros. Vale la pena notar que la categoría *Despejado* también es muy poco frecuente (3 registros): al medio día casi siempre hay algo de nubosidad en la región.
+
+\noindent\textbf{Pregunta 3. Clasifique las variables 1) Pronóstico: Pronóstico del clima, 2) Municipio: Municipio de medición, 3) Temperatura: Temperatura medida en grados centígrados y 4) Velocidad del viento: Velocidad del viento medida en mph, según su escala y clase.}
+
+```{r clasificacion}
+tabla_variables <- data.frame(
+  Variable = c("Pronóstico", "Municipio", "Temperatura", "Velocidad del viento"),
+  Escala   = c("Nominal", "Nominal", "Intervalo", "Razón"),
+  Clase    = c("Politómica", "Politómica", "Continua", "Continua"))
+
+knitr::kable(tabla_variables, caption = "Clasificación de las variables")
+```
+
+El *Pronóstico* es una variable cualitativa con más de dos categorías, es decir politómica. La tratamos como nominal porque sus categorías son combinaciones (*Nublado - Llovizna*, *Parcialmente Nublado - Lluvia Fuerte*) que no admiten un único orden defendible. El *Municipio* también es cualitativa politómica y nominal, ya que los nombres de municipio no se pueden ordenar ni operar entre sí.
+
+La *Temperatura* está medida en grados centígrados, cuyo cero es convencional y no significa ausencia de temperatura, por lo que su escala es de intervalo: tienen sentido las diferencias, pero no los cocientes, y por eso 20 °C no es el doble de calor que 10 °C. Es una variable continua, porque puede tomar cualquier valor dentro de un intervalo. La *Velocidad del viento*, en cambio, está en escala de razón, porque su cero sí es absoluto (viento en calma) y los cocientes tienen sentido. También es continua.
+
+\noindent\textbf{Pregunta 4. Para los registros recolectados a medio día, describa de manera gráfica la temperatura y la velocidad del viento univariadamente a partir de un diagrama de caja. ¿Qué características observa los datos en términos de centro, localización y dispersión?}
+
+```{r}
+
+# Crear una función para los boxplots
+
+boxplot_estadisticos <- function(datos, variable, titulo, subtitulo, etiqueta_x) {
+  
+  valores <- datos[[variable]]
+  
+  estadisticos <- boxplot.stats(valores)$stats
+  
+  etiquetas <- data.frame(
+    x = as.numeric(estadisticos),
+    y = 1.18,
+    etiqueta = c(
+      paste0("Mín: ", round(estadisticos[1], 1)),
+      paste0("Q1: ", round(estadisticos[2], 1)),
+      paste0("Q2: ", round(estadisticos[3], 1)),
+      paste0("Q3: ", round(estadisticos[4], 1)),
+      paste0("Máx: ", round(estadisticos[5], 1))))
+  
+  ggplot(datos, aes(x = .data[[variable]], y = 1)) +
+    
+    geom_boxplot(
+      fill = rojo,
+      color = rojo_oscuro,
+      width = 0.35) +
+    
+    geom_segment(
+      data = etiquetas,
+      aes(
+        x = x,
+        xend = x,
+        y = 0.82,
+        yend = 1.18
+      ),
+      color = rojo_oscuro,
+      linewidth = 0.5,
+      linetype = "dashed") +
+    
+    geom_text(
+      data = etiquetas,
+      aes(
+        x = x,
+        y = y,
+        label = etiqueta
+      ),
+      size = 3.5,
+      fontface = "bold",
+      color = "#950606") +
+    
+    labs(
+      title = titulo,
+      subtitle = subtitulo,
+      x = etiqueta_x,
+      y = NULL) +
+    
+    theme_minimal() +
+    
+    theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 14,
+        hjust = 0.5),
+      plot.subtitle = element_text(
+        size = 11,
+        hjust = 0.5),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.title.x = element_text(face = "bold"),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_blank())}
+```
+
+```{r Boxplot Temperatura, fig.width=7, fig.height=3.2, fig.align="center"}
+
+boxplot_estadisticos(
+  ORI_MedioDia,
+  "Temperatura",
+  "Distribución de la temperatura",
+  "Registros recolectados al medio día",
+  "Temperatura (°C)")
+```
+
+```{r stats-temperatura}
+caja_temp <- boxplot(ORI_MedioDia$Temperatura, plot = FALSE)
+
+caja_temp$stats       # bigote inferior, Q1, mediana, Q3, bigote superior
+length(caja_temp$out) # cuántos datos atípicos hay
+caja_temp$out         # cuáles son
+
+#summary(ORI_MedioDia$Temperatura)
+```
+
+**Temperatura:**
+
+El centro está en una mediana de 30,4 °C. El 50 % central de las observaciones de temperaturas a medio día se ubica entre 28,8 °C (Q1) y 31,3 °C (Q3), es decir un rango intercuartílico de 2,5 °C: una dispersión pequeña frente a una temperatura típica de 30 °C.
+
+La mediana no está en la mitad de la caja, sino más cerca de Q3 (0,9 °C) que de Q1 (1,6 °C). Como la mitad *inferior* de la caja es la más larga, la distribución es asimétrica **hacia los valores bajos**, con cola a la izquierda. Esto lo confirman los 8 datos atípicos: todos están por debajo de Q1 a más de 1,5 veces el rango intercuartílico, entre 22,4 °C y 24,8 °C. En el gráfico solo se distinguen 6 puntos porque el valor 23,7 °C se repite tres veces y los puntos quedan superpuestos.
+
+```{r Boxplot Velocidad Viento, fig.width=7, fig.height=3.2, fig.align="center"}
+
+boxplot_estadisticos(
+  ORI_MedioDia,
+  "Velocidad_del_Viento",
+  "Distribución de la velocidad del viento",
+  "Registros recolectados al medio día",
+  "Velocidad del viento (mph)")
+```
+
+```{r stats-viento}
+caja_viento <- boxplot(ORI_MedioDia$Velocidad_del_Viento, plot = FALSE)
+
+caja_viento$stats
+length(caja_viento$out)
+```
+
+**Velocidad del viento:**
+
+La mediana es 1,7 mph y el 50 % central de los datos está entre 1,0 mph (Q1) y 2,2 mph (Q3), con un rango intercuartílico de 1,2 mph. En términos relativos la dispersión es mucho mayor que la de la temperatura: el rango intercuartílico es casi igual a la mediana.
+
+No hay datos atípicos. Aquí el bigote superior es más largo que el inferior (de 2,2 hasta 3,7 mph, contra 1,0 hasta 0,4 mph), de modo que la asimetría es **hacia los valores altos**, con cola a la derecha: lo contrario de lo que ocurre con la temperatura.
+
+\noindent\textbf{Pregunta 5. Para los registros recolectados a medio día, describa de manera numérica mediante la función summary() la temperatura y la velocidad del viento univariadamente. ¿Concuerda su descripción con los gráficos de boxplot previamente presentados?}
+
+```{r summary-temperatura}
+summary(ORI_MedioDia$Temperatura)
+```
+
+```{r summary-viento}
+summary(ORI_MedioDia$Velocidad_del_Viento)
+```
+
+Para la *velocidad del viento* los dos resúmenes coinciden por completo: el mínimo de `summary()` (0,4 mph) es el mismo extremo del bigote inferior del boxplot, y lo mismo pasa con el máximo.
+
+Para la *temperatura* no coinciden: `summary()` reporta un mínimo de 22,4 °C, mientras que el bigote inferior del boxplot llega solo hasta 26,5 °C. La razón es que el boxplot no dibuja los extremos reales de los datos, sino hasta dónde llega el último valor que **no** es atípico; todo lo que queda más allá se dibuja como punto suelto. Esa diferencia entre las dos descripciones es, en sí misma, la señal de que la temperatura tiene atípicos por el extremo inferior y de que la velocidad del viento no tiene ninguno.
+
+La mediana y los cuartiles coinciden en las dos variables salvo pequeñas diferencias de redondeo. La lectura de centro y dispersión de la pregunta anterior se sostiene.
+
+\noindent\textbf{Pregunta 6. Para los registros recolectados a medio día, determine si existen o no observaciones atípicas univariadas para la variables Presión y Punto de Rocio usando el diagrama de caja de Tukey. ¿cuál variable presenta mayor número de atipicidades?}
+
+```{r boxplot-presion, fig.width=7, fig.height=3.2, fig.align="center"}
+
+boxplot_estadisticos(
+  ORI_MedioDia,
+  "Presion",
+  "Distribución de la presión",
+  "Registros recolectados al medio día",
+  "Presión")
+```
+
+```{r}
+
+atipicos_presion <- boxplot(ORI_MedioDia$Presion, plot = FALSE)$out
+
+print(paste0('El número de atipicidades de la Presión es: ',
+             length(atipicos_presion)))
+atipicos_presion # valores atípicos
+```
+
+```{r boxplot-rocio, fig.width=7, fig.height=3.2, fig.align="center"}
+
+boxplot_estadisticos(
+  ORI_MedioDia,
+  "Punto_de_Rocio",
+  "Distribución del punto de rocio",
+  "Registros recolectados al medio día",
+  "Punto de Rocio")
+```
+
+```{r atipicos-rocio}
+
+atipicos_rocio <- boxplot(ORI_MedioDia$Punto_de_Rocio, plot = FALSE)$out
+
+print(paste0('El número de atipicidades del Punto de rocío es: ',
+             length(atipicos_rocio)))
+atipicos_rocio     # número de atipicidades del Punto de rocío
+```
+
+Bajo el criterio del diagrama de caja de Tukey, la **Presión** presenta 1 observación atípica (1015,7 hPa, por encima del extremo superior) y el **Punto de rocío** no presenta ninguna. Por lo tanto la Presión es la variable con mayor número de atipicidades, aunque con una sola observación sobre 118 la diferencia es mínima: ninguna de las dos variables muestra un problema serio de atipicidad.
+
+\noindent\textbf{Pregunta 7. Para los registros recolectados a medio día, describa de manera gráfica la asociación entre la temperatura y velocidad del viento a partir de un diagrama de dispersión entre las variables. Añada el histograma marginal de cada variable. ¿Parecen correlacionarse las dos variables?}
+
+```{r p7-dispersion, fig.height=4.5, message=FALSE, warning=FALSE, fig.keep='last'}
+dispersion <- ggplot(ORI_MedioDia, aes(x = Temperatura, y = Velocidad_del_Viento)) +
+  geom_point(color = rojo_oscuro, size = 2, alpha = 0.7) +
+  labs(x     = "Temperatura (°C)",
+       y     = "Velocidad del viento (mph)",
+       title = "Temperatura vs. velocidad del viento al medio día") +
+  theme_minimal()
+
+# ggMarginal añade un histograma en el margen superior (Temperatura)
+# y otro en el margen derecho (Velocidad del viento)
+ggMarginal(dispersion, type = "histogram", fill = rojo, color = "white")
+```
+
+El diagrama de dispersión muestra una nube de puntos sin ninguna tendencia clara: para temperaturas bajas, medias o altas, la velocidad del viento toma prácticamente cualquier valor entre 0,4 y 3,7 mph. No se aprecia un patrón lineal ni de otro tipo (ni creciente, ni decreciente, ni curvo) entre las dos variables.
+
+Los histogramas marginales reproducen los hallazgos de las preguntas anteriores: el de la *temperatura* (arriba) deja ver las dos modas que se estudian a fondo en la pregunta 10 —un grupo pequeño de registros fríos, entre 22 y 25 °C, correspondientes a los municipios de montaña, separado del grueso de los datos que se concentra entre 29 y 33 °C—. El de la *velocidad del viento* (a la derecha) muestra la asimetría hacia la derecha ya descrita en la pregunta 4, con la mayoría de los registros por debajo de 2,5 mph y una cola que se extiende hasta cerca de 3,7 mph.
+
+Con base en el gráfico, las dos variables **no parecen correlacionarse**: el grupo de temperaturas bajas (municipios de montaña) no se asocia con vientos sistemáticamente más altos ni más bajos que el resto de los datos, y dentro del grupo principal la nube de puntos es igual de dispersa en toda la franja de temperatura.
+
+\noindent\textbf{Pregunta 8. Para los registros recolectados a medio día, describa de manera numérica la asociación entre temperatura y velocidad del viento a partir de la covarianza y el coeficiente de correlación de Pearson. ¿Parecen correlacionarse las dos variables? ¿en qué unidades se encuentran cada una de las dos medidas anteriormente mencionadas?}
+
+```{r p8-covarianza}
+cov(ORI_MedioDia$Temperatura, ORI_MedioDia$Velocidad_del_Viento)
+```
+
+```{r p8-correlacion}
+cor(ORI_MedioDia$Temperatura, ORI_MedioDia$Velocidad_del_Viento)
+```
+
+```{r p8-prueba}
+cor.test(ORI_MedioDia$Temperatura, ORI_MedioDia$Velocidad_del_Viento)
+```
+
+La covarianza entre *temperatura* y *velocidad del viento* es 0,047. Sus unidades son el producto de las unidades de las dos variables originales, es decir **°C·mph**: una unidad compuesta y sin una interpretación física directa, lo que hace difícil juzgar a partir de ella si el número es "grande" o "pequeño"; además su magnitud cambia si, por ejemplo, la temperatura se expresara en Fahrenheit en lugar de en grados centígrados.
+
+El coeficiente de correlación de Pearson es 0,026. A diferencia de la covarianza, es una medida **adimensional** (no tiene unidades), porque queda estandarizada al dividir la covarianza entre el producto de las desviaciones estándar de las dos variables. Por construcción toma valores entre -1 y 1, lo que sí permite comparar directamente la fuerza de la asociación.
+
+Un valor de 0,026 está prácticamente en cero, así que las dos variables **no parecen correlacionarse**, confirmando lo observado gráficamente en la pregunta 7. La prueba de hipótesis para la correlación lo respalda de forma formal: el valor p es 0,78, muy por encima de 0,05, de modo que no se rechaza la hipótesis nula de que la verdadera correlación es cero. En conclusión, no existe evidencia de una asociación lineal entre la temperatura y la velocidad del viento en los registros de medio día.
+
+\noindent\textbf{Pregunta 9. Para los registros recolectados a medio día, responda. Son estos datos ¿univariados, bivariados o multivariados?}
+
+Los datos recolectados, tanto del medio día como en las demas horas, hablan de una situación meteorológica especifica en municipios especificos. En estos se miden mas de 2 variables de manera simultanea a esa situación, luego la naturaleza de los datos de estudio es multivariada.
+
+Al querer analizar la situación meteorológica y tener multiples variables que describen ese evento, como hora, punto de rocío, velocidad del viento, ubicación del municipio, temperatura, entre otras, se determina el fenomeno climatologico registrado en más de 2 variables.
+
+------------------------------------------------------------------------
+
+## Parte 2. Estimación de la densidad
+
+\noindent\textbf{Pregunta 10. Para los registros recolectados a medio día, elabore la estimación histograma de la densidad y la estimación kernel de la densidad para la variable Temperatura. ¿Podría afirmar que los datos provienen de una distribución normal?}
+
+```{r p10-densidad, fig.height=4}
+temperatura <- ORI_MedioDia$Temperatura
+
+# Calculamos antes el histograma y la curva para saber cuál de los dos es más
+# alto, y así fijar el eje Y sin que la curva se salga del gráfico.
+histograma <- hist(temperatura, breaks = 12, plot = FALSE)
+curva      <- density(temperatura)
+altura_max <- max(histograma$density, curva$y)
+
+hist(temperatura,
+     freq   = FALSE,          # eje Y en densidad, no en conteos
+     breaks = 12,
+     ylim   = c(0, altura_max),
+     col    = rojo,
+     border = "white",
+     main   = "Estimación de la densidad de la temperatura",
+     xlab   = "Temperatura (°C)",
+     ylab   = "Densidad")
+
+lines(curva, col = rojo_oscuro, lwd = 2)
+```
+
+```{r p10-qq, fig.height=4}
+qqnorm(temperatura,
+       main = "Gráfico cuantil-cuantil de la temperatura",
+       xlab = "Cuantiles teóricos de una normal",
+       ylab = "Cuantiles observados",
+       pch  = 19,
+       col  = rojo)
+
+qqline(temperatura, col = rojo_oscuro, lwd = 2)
+```
+
+```{r p10-shapiro}
+shapiro.test(temperatura)
+```
+
+La estimación de la densidad muestra dos modas: un pico principal alrededor de 31,1 °C y una segunda joroba, mucho más baja, cerca de 23,5 °C. Una distribución normal tiene una sola moda, así que esta característica por sí sola ya permite descartarla. Esa segunda joroba no es ruido: corresponde a 8 registros de cuatro municipios de montaña (Pajarito y Paya en Boyacá, Chámeza y Recetor en Casanare), cada uno medido en los dos días de la base, y son exactamente los mismos 8 datos atípicos encontrados en la pregunta 4. Es decir, la variable está mezclando dos poblaciones distintas: la llanura y la cordillera.
+
+El gráfico cuantil-cuantil apunta en la misma dirección. En la parte central los puntos siguen bien la recta teórica, pero en la cola inferior se separan claramente hacia abajo, que es la forma característica de una distribución con cola a la izquierda.
+
+La prueba de Shapiro-Wilk lo confirma de manera formal: el estadístico W da 0,860 y el valor p es 3,4e-09, muy por debajo de 0,05, de modo que se rechaza la hipótesis nula de normalidad. En conclusión, no se puede afirmar que la *temperatura* provenga de una distribución normal para los datos recolectados y registrados a las 12m.
+
+\noindent\textbf{Pregunta 11. Para los registros recolectados a medio día, elabore la estimación histograma de la densidad y la estimación kernel de la densidad para la variable Presión ¿Es la distribución estimada simétrica? explique.}
+
+```{r p11-densidad, fig.height=4}
+presion <- ORI_MedioDia$Presion
+
+histograma_p <- hist(presion, breaks = 12, plot = FALSE)
+curva_p      <- density(presion)
+altura_max_p <- max(histograma_p$density, curva_p$y)
+
+hist(presion,
+     freq   = FALSE,
+     breaks = 12,
+     ylim   = c(0, altura_max_p),
+     col    = rojo,
+     border = "white",
+     main   = "Estimación de la densidad de la presión",
+     xlab   = "Presión (hPa)",
+     ylab   = "Densidad")
+
+lines(curva_p, col = rojo_oscuro, lwd = 2)
+```
+
+```{r p11-simetria}
+mean(presion)     # media
+median(presion)   # mediana
+
+quantile(presion, c(0.25, 0.50, 0.75))
+```
+
+La distribución estimada de la *presión* no es simétrica: está sesgada hacia la derecha, es decir, tiene una cola larga por el lado de las presiones altas.
+
+Lo primero que lo indica es que la media es mayor que la mediana, 1012,78 contra 1012,50 hPa. En una distribución simétrica las dos coinciden, y que la media quede por encima significa que hay valores altos tirando de ella, porque la media sí se deja arrastrar por los valores extremos y la mediana no.
+
+Los cuartiles muestran lo mismo. De Q1 a la mediana hay 0,6 hPa, mientras que de la mediana a Q3 hay 0,9 hPa, de manera que la mitad superior es la más larga. Es el mismo razonamiento aplicado en la pregunta 4, solo que aquí apunta en la dirección contraria a la de la temperatura.
+
+La curva estimada lo muestra a simple vista: un pico alto y angosto en torno a 1012 hPa, una caída rápida por la izquierda, ya que el mínimo de 1010,9 hPa está muy cerca del pico, y una cola que se estira por la derecha hasta 1015,7 hPa, justo donde se encuentra el único dato atípico identificado en la pregunta 6. Ese valor aislado es el que produce la pequeña ondulación del extremo derecho de la curva.
+
+\noindent\textbf{Pregunta 12. Para los registros recolectados a medio día, elabore la estimación kernel de la densidad para la variable Velocidad del viento. Sobreponga en su gráfico la función de densidad normal con la media y desviación estándar observada en sus datos. ¿Se aproxima el modelo normal estimado a la estimación de la densidad encontrada?}
+
+```{r p12-parametros}
+viento <- ORI_MedioDia$Velocidad_del_Viento
+
+media_viento <- mean(viento)
+de_viento    <- sd(viento)
+
+media_viento
+de_viento
+```
+
+```{r p12-densidad, fig.height=4}
+curva_v      <- density(viento)
+altura_max_v <- max(curva_v$y, dnorm(media_viento, media_viento, de_viento))
+
+plot(curva_v,
+     ylim = c(0, altura_max_v),
+     col  = rojo_oscuro,
+     lwd  = 2,
+     main = "Velocidad del viento: densidad estimada y modelo normal",
+     xlab = "Velocidad del viento (mph)",
+     ylab = "Densidad")
+
+# Densidad normal con la media y la desviación estándar de los datos
+curve(dnorm(x, mean = media_viento, sd = de_viento),
+      add = TRUE,
+      col = rojo,
+      lwd = 2,
+      lty = 2)
+
+abline(v = 0, col = "gray50", lty = 3)   # marca el cero
+
+legend("topright",
+       legend = c("Estimación kernel", "Modelo normal ajustado"),
+       col    = c(rojo_oscuro, rojo),
+       lty    = c(1, 2),
+       lwd    = 2,
+       bty    = "n",
+       cex    = 0.85)
+```
+
+```{r p12-negativos}
+# Probabilidad que el modelo normal le asigna a una velocidad negativa
+pnorm(0, mean = media_viento, sd = de_viento)
+```
+
+El modelo normal ajustado usa la media y la desviación estándar observadas, 1,72 y 0,79 mph, pero no se aproxima bien a la densidad estimada.
+
+La forma de las dos curvas es distinta. La normal es simétrica y tiene una sola moda, centrada en 1,72 mph, mientras que la estimación kernel tiene dos modas, un pico principal en 1,9 mph y otro casi igual de alto en 1,0 mph, además de un pequeño repunte cerca de 3,3 mph. La normal alisa esos tres rasgos y los reemplaza por una sola campana.
+
+La altura tampoco coincide. En el centro la normal queda por encima de la densidad estimada, 0,506 contra 0,472, es decir que concentra demasiada probabilidad alrededor de la media, y en cambio se queda corta más allá de 3 mph, donde los datos todavía tienen masa.
+
+El problema más importante, sin embargo, no es de forma sino de fondo. La densidad normal está definida sobre toda la recta real, así que necesariamente le asigna probabilidad a valores negativos. Con esta media y esta desviación esa probabilidad es 0,0147, o sea que cerca del 1,5 % de la probabilidad del modelo queda a la izquierda del cero, que en el gráfico corresponde a la parte de la curva punteada que cruza la línea vertical gris. Una velocidad no puede ser negativa, de modo que la normal no es un modelo admisible para la *velocidad del viento*, por bien que se viera la curva.
+
+En conclusión, el modelo normal estimado no se aproxima a la densidad encontrada. Para modelar esta variable habría que usar una distribución asimétrica y definida únicamente para valores positivos.

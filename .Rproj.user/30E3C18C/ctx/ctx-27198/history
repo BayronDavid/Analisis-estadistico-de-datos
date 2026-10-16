@@ -1,0 +1,35 @@
+# Mostrar el código de cada bloque en el documento final
+knitr::opts_chunk$set(
+echo = TRUE,
+fig.align = "center",
+message = FALSE,
+warning = FALSE
+)
+Sys.setlocale("LC_CTYPE", "Spanish_Colombia.utf8")
+# Instalación de librerias en caso de no tenerlas
+# install.packages("plotly")
+# install.packages("MASS")
+# install.packages("psych")
+# install.packages("tidyverse")
+# install.packages("factoextra")
+# install.packages("GGally")
+# Ejecución de librerias
+library(plotly)
+library(MASS)
+library(psych)
+library(tidyverse)
+library(factoextra)
+# Instalación de librerias en caso de no tenerlas
+# install.packages("plotly")
+# install.packages("MASS")
+# install.packages("psych")
+# install.packages("tidyverse")
+install.packages("factoextra")
+# install.packages("GGally")
+# Ejecución de librerias
+library(plotly)
+library(MASS)
+library(psych)
+library(tidyverse)
+# library(factoextra)
+library(GGally)
