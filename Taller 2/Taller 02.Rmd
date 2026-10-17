@@ -1,0 +1,409 @@
+---
+title: "Análisis Estadístico de Datos - Taller 02"
+author: "Adriana Porras, Alejandra Niño, Bayron Morales, Juliana Cárdenas"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    keep_tex: true
+---
+
+## EIA data
+
+U.S. Energy Information Administration (EIA) es una organización que se encarga de recopilar, analizar y difundir información energética de manera independiente e imparcial para promover la formulación de políticas sólidas, mercados eficientes y la comprensión pública de la energía y su interacción con la economía y el medio ambiente.
+
+Los datos que trabajaremos a continuación corresponden a la extracción de diferentes variables relacionadas con energías renovables y combustibles fósiles, las UE son 111 países de todos los continentes del mundo, seleccionados para fines académicos por ser aquellos países que presentan mayor cantidad de información de análisis.
+
+El objetivo de este análisis es encontrar diferentes relaciones entre los países que se están estudiando, de tal forma que podamos caracterizar en términos de importación, exportación, consumo, producción, etc. a los países de estudio.
+
+```{r setup, include=FALSE}
+# Mostrar el código de cada bloque en el documento final
+knitr::opts_chunk$set(
+	echo = TRUE,
+	fig.align = "center",
+	message = FALSE,
+	warning = FALSE
+)
+Sys.setlocale("LC_CTYPE", "Spanish_Colombia.utf8")
+```
+
+```{r librerias, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+# Instalación de librerias en caso de no tenerlas
+# install.packages("plotly")
+# install.packages("MASS")
+# install.packages("psych")
+# install.packages("tidyverse")
+# install.packages("factoextra")
+# install.packages("GGally")
+# install.packages("dplyr")
+
+# Ejecución de librerias
+library(plotly)
+library(MASS)
+library(psych)
+library(tidyverse)
+library(factoextra)
+library(GGally)
+library(dplyr)
+```
+
+```{r colores}
+
+# Colores usados en todos los gráficos del taller
+rojo        <- "#DA0921"
+rojo_oscuro <- "#950606"
+```
+
+```{r lectura}
+
+data1 <- read.csv("datos_taller_02.csv", row.names=1, sep=";")
+
+# Revisar variables en la base
+names(data1)
+```
+
+------------------------------------------------------------------------
+
+## Normal multivariada
+
+\noindent\textbf{Pregunta 1. Encuentre la estimación del vector de medias y la matriz de varianzas y covarianzas para 5 variables de su interés del conjunto de datos.}
+
+Las 5 variables seleccionadas son:
+
+-   Electricity_net_consumption_BKWH (35)
+
+-   Electricity_net_generation_BKWH (36)
+
+-   Electricity_distribution_losses_BKWH (31)
+
+-   Fossil_fuels_electricity_net_generation_BKWH (39)
+
+-   Renewable_electricity_net_generation_BKWH (51)
+
+```{r Base_Reducida}
+
+data2 <- data1[c(35:36,31,39,51)]
+
+# Se ajustan los nombres para facilitar la visualización
+names(data2) <- c("Consumo(C)", "Generacion(G)","Perdida(P)",
+                  "Fossil_G", "Renewable_G")
+
+names(data2)
+
+```
+
+```{r vector_medias}
+
+# Vector de medias
+colMeans(data2)
+```
+
+Es necesario resaltar que las cinco variables seleccionadas manejan la misma escala, ya que se presentan en BKWH (Billion Kilowatt Hours (Miles de millones de kilovatios-hora)). Respecto al vector de medias, la generación neta de electricidad es la que tiene la mayor media (Generación(G): 198.290 BKWH), seguido por el consumo neto de electricidad (Consumo(C): 181.816 BKWH) y la generación neta de electricidad a partir de combustibles fósiles (Fossil_G: 132.584). La generación neta de electricidad renovable tiene una media de 44.771 y la media más baja la tienen las pérdidas en la distribución de electricidad (17.004). Esta última variable representa la diferencia entre la energía eléctrica que se inyecta en la red de distribución y la energia que finalmente se entrega a los consumidores finales.
+
+```{r Matriz}
+
+# Matriz de varianzas y covarianzas:
+cov(data2)
+
+```
+
+La variable que presenta mayor varianza es consumo neto de electricidad (Consumo(C): 383958) y la que presenta menor varianza es pérdidas en la distribución de electricidad (Perdida(P): 1990.936). Sin embargo, se debe recordar que esta se ve afectada por valores atípicos, por lo que puede estar sobrestimada.
+
+Respecto a las covarianza, se observa que todas las variables se relacionan positivamente, es decir, que al aumentar una, las otras también aumentarán. Para poder medir la fuerza de esa relación, se requiere realizar un análisis de correlación, el cual se realizará en el siguiente punto.
+
+------------------------------------------------------------------------
+
+## ACP
+
+\noindent\textbf{Pregunta 2. Realice un análisis descriptivo univariado y bivariado del conjunto de datos. Considere nuevamente las mismas 5 variables de su interés para este punto.}
+
+**Análisis descriptivo univariado**
+
+Para realizar el análisis descriptivo univariado se van a emplear boxplot, por lo que se genera una función que permita realizarlo de forma fácil y, a continuación, se generan y analizan cada uno de los boxplot.
+
+```{r}
+
+# Crear una función para crear boxplot
+
+boxplot_estadisticos <- function(data2, variable, titulo, subtitulo, etiqueta_x) {
+  
+  valores <- data2[[variable]]
+  
+  estadisticos <- boxplot.stats(valores)$stats
+  
+  etiquetas <- data.frame(
+    x = as.numeric(estadisticos),
+    y = 1.18,
+    etiqueta = c(
+      paste0("Mín: ", round(estadisticos[1], 1)),
+      paste0("Q1: ", round(estadisticos[2], 1)),
+      paste0("Q2: ", round(estadisticos[3], 1)),
+      paste0("Q3: ", round(estadisticos[4], 1)),
+      paste0("Máx: ", round(estadisticos[5], 1))))
+  
+  ggplot(data2, aes(x = .data[[variable]], y = 1)) +
+    
+    geom_boxplot(
+      fill = rojo,
+      color = rojo_oscuro,
+      width = 0.35) +
+    
+    geom_segment(
+      data = etiquetas,
+      aes(
+        x = x,
+        xend = x,
+        y = 0.82,
+        yend = 1.18
+      ),
+      color = rojo_oscuro,
+      linewidth = 0.5,
+      linetype = "dashed") +
+    
+    geom_text(
+      data = etiquetas,
+      aes(
+        x = x,
+        y = y,
+        label = etiqueta
+      ),
+      size = 3.5,
+      fontface = "bold",
+      color = "#950606") +
+    
+    labs(
+      title = titulo,
+      subtitle = subtitulo,
+      x = etiqueta_x,
+      y = NULL) +
+    
+    theme_minimal() +
+    
+    theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 14,
+        hjust = 0.5),
+      plot.subtitle = element_text(
+        size = 11,
+        hjust = 0.5),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.title.x = element_text(face = "bold"),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_blank())}
+```
+
+```{r Boxplot Consumo, fig.width=7, fig.height=3.2, fig.align="center"}
+
+boxplot_estadisticos(
+ data2,
+  "Consumo(C)",
+  "Distribución Consumo(C)",
+  "Paises",
+  "Electricidad consumidad(BKWH)")
+
+```
+
+```{r}
+
+caja_Consumo <- boxplot(data2$`Consumo(C)`, plot = FALSE)
+
+caja_Consumo$stats
+length(caja_Consumo$out)
+```
+
+En el punto anterior se identificó que la media de la generación neta de electricidad es de 181.816 BKWH, este valor dista bastante de la mediana (Q2): 37, debido a que la media es sensible a valores atípicos y, en este caso, se observan 11 datos atipicos con valores muy extremos (superiores a 287, es decir, casi 8 veces la mediana). Esto es acorde con la varianza obtenida: 181.816 y permite asumir que los datos siguen una distribución asimétrica positiva.
+
+Se puede observar que el 75% de los países tiene un consumo neto de electricidad menor o igual a 122.5 BKWH, con 11 países presentando valores 1.5 veces mayores al rango intercuartilico superior (287). Los mayores consumos de electricidad los presentan China (5079) y Estados Unidos (3915).
+
+```{r Boxplot generación, fig.width=7, fig.height=3.2, fig.align="center"}
+
+boxplot_estadisticos(
+ data2,
+  "Generacion(G)",
+  "Distribución Generacion(G)",
+  "Paises",
+  "Electricidad generada (BKWH)")
+```
+
+```{r}
+
+caja_Generacion <- boxplot(data2$`Generacion(G)`, plot = FALSE)
+
+caja_Generacion$stats
+length(caja_Generacion$out)
+```
+
+Los datos de la electricidad neta generada son similares a los del consumo, con una media que dista bastante de la mediana (Media: 198.290 y Mediana: 43), lo que sugiere una distribución de con asimetría positiva. Se identifican 9 valores atípicos, los cuales son superiores a 321.
+
+El 75% de los países tiene una generación neta de electricidad menor o igual a 136 BKWH. Los países que más generan electricidad son China (5400) y Estados Unidos (4105), los cuales, son también los mayores consumidores.
+
+```{r Boxplot Perdida, fig.width=7, fig.height=3.2, fig.align="center"}
+
+boxplot_estadisticos(
+ data2,
+  "Perdida(P)",
+  "Distribución Perdida(P)",
+  "Paises",
+  "Electricidad consumidad(BKWH)")
+```
+
+```{r}
+
+caja_Perdida <- boxplot(data2$`Perdida(P)`, plot = FALSE)
+
+caja_Perdida$stats
+length(caja_Perdida$out)
+```
+
+Respecto a las pérdidas en la distribución de electricidad, esta variables no solo es la presenta la menor media (17.004) y la menor varianza (1990.936), sino que presenta también la menor mediana (3.80). El límite superior de los datos es 21, es decir, que todos los países -exceptuando los datos atípicos- tienen pérdidas en la distribución de energía iguales o inferiores a 21 BKWH, este valor de 2 cifras es muy inferior a los reportados en las variable de consumo y generación de electricidad. Se observan 15 datos atípicos.
+
+En este caso, los países con mayor consumo y generación de electricidad, también son los que presentan mayores pérdidas en la distribución de electricidad: China con 310 BKWH y Estados Unidos con 244 BKWH, siendo estos valores atípicos.
+
+```{r Boxplot Fosil, fig.width=7, fig.height=3.2, fig.align="center"}
+
+boxplot_estadisticos(
+ data2,
+  "Fossil_G",
+  "Distribución Fossil_G",
+  "Paises",
+  "Electricidad Fossil_G (BKWH)")
+```
+
+```{r}
+
+caja_Fossil_G <- boxplot(data2$Fossil_G, plot = FALSE)
+
+caja_Fossil_G$stats
+length(caja_Fossil_G$out)
+```
+
+La variable generación de energía con combustible fósil sigue la misma tendencia que las anteriores variables, con una media (132.584) muy superior a la mediana (21), lo que sugiere una distribución asimétrica positiva.
+
+En esta variable, se identifican por primera vez países con 0 generación de electricidad con combustibles fósiles. El 75% o los países presentan una generación de energía con combustible fósil igual o inferior a 80 BKWH. China y Estados Unidos repiten como los países que encabezan la lista, con 3985 BKWH y 2751 BKWH, respectivamente. Si se compara la generación de electricidad con esta va,riable referente puntualmente a combustibles fósiles, se observa que para china el 74% de la generación es con estos combustibles y en Estados Unidos corresponde al 67%.
+
+```{r Boxplot Renovable, fig.width=7, fig.height=3.2, fig.align="center"}
+
+boxplot_estadisticos(
+ data2,
+  "Renewable_G",
+  "Distribución Renewable_G",
+  "Paises",
+  "Electricidad Renovable (BKWH)")
+
+```
+
+```{r}
+
+caja_Renewable_G <- boxplot(data2$Renewable_G, plot = FALSE)
+
+caja_Renewable_G$stats
+length(caja_Renewable_G$out)
+```
+
+Finalmente, la generación de energía renovable también presenta valores mínimos de 0, una media (44.771) superior a la mediana (8.3), sugiriendo distribución asimétrica positiva y la segunda menor varianza (20864.464).
+
+Es necesario mencionar que, si bien en esta variable se mantienen en primer lugar China (1287) y Estados Unidos (563), dentro del top 4 (todos valores atípicos) ingresan Brazil (429) y Canada (412) y salen Japón y Rusia que se mantuvieron en 4to y 5to puesto en todas las otras variables, excepto en pérdidas en la distribución de electricidad, en el que Rusia está de 4to y Japón de 8vo. El 75% de los países presenta una generación de electricidad renovable menor o igual a 26.5, valor 3 veces menor al mismo porcentaje de generación con combustibles fósiles.
+
+```{r densidad_estimada}
+
+gather(data2) %>%
+  ggplot(aes(x=value)) +
+  geom_density() +
+  labs(x= "",y='Densidad',title="Densidad estimada") +
+  facet_wrap(~key, scales = "free")
+```
+
+Las gráficas de densidad confirman que las variables siguen una ditribución simétrica positiva, en la que la mayoría de países presenta valores muy bajos y unos pocos valores altos. También se identifican algunos picos en los datos, empezando todas las variables con valores altos, luego aumentando en mayor o menor medida, y continuando con una caída pronunciada con presencia de algunos picos.
+
+**Análisis descriptivo multivariado**
+
+Para poder realizar los análisis descriptivos multivariados, se realiza una gráfica que incluye la correlación (de Pearson) y gráficos de dispersión para cada par de variables, y los histogramas de frecuencia de cada variable.
+
+```{r}
+
+pairs.panels(data2,
+             scale = FALSE,      # If TRUE, scales the correlation text font
+             density = TRUE,     # If TRUE, adds density plots and histograms
+             method = "pearson", # Correlation method (also "spearman" or "kendall")
+             cor = TRUE,         # If TRUE, reports correlations
+             jiggle = FALSE)     # If TRUE, data points are jittered
+```
+
+La gráfica permite identificar correlaciones positivas altas para todas las variables. Consumo, Generación y Generación con Combustibles Fósiles tienes correlaciones altísimas (0.99 y 1) y las gráficas de dispersión muestran líneas longitudinales, es decir que, al aumentar una, casi siempre va a aumentar la otra. Dependiendo del análisis, se debería evaluar quedarse con una sola variable, ya que parecen estar midiendo casi lo mismo y podrían sobrestimar el modelo.
+
+La menor correlación se observa entre generación de electricidad con combustibles fósiles y generación de electricidad renovable, lo cual tiene sentido, al ser esta última una alternativa ecológica a la primera.
+
+La variables de pérdidas de distribución de electricidad y generación de electricidad renovable presentan una correlación alta (0.91), sin embargo, la gráfica de distribución no parece presentan una relación tan alta, esto se debe probablemente a puntos que no parecen seguir una correlación lineal aparente.
+
+\noindent\textbf{Pregunta 3. El conjunto de datos incluye 57 variables, analizarlas de forma individual podría representar un gasto computacional y de tiempo bastante agotador; por lo cuál una técnica de reducción de dimensionalidad sería ideal. Ejecute un ACP sobre estos datos, compare la contribución de las variables sobre el primer plano factorial de un ACP normado (escalado) y uno sin normalizar (sin escalar).}
+
+```{r}
+
+pc_b <-prcomp(data1)
+summary(pc_b)
+```
+
+```{r}
+
+screeplot(pc_b, col = rojo, pch = 16,
+type = "lines", cex = 2, lwd = 2, main = "")
+```
+
+```{r}
+
+pc_c <-prcomp(data1, scale = TRUE)
+summary(pc_c)
+```
+
+```{r}
+
+screeplot(pc_c, col = rojo, pch = 16,
+type = "lines", cex = 2, lwd = 2, main = "")
+```
+
+.....
+
+```{r}
+pc_f <-prcomp(mtcars2, scale = TRUE, rank. = 2)
+pc_f
+```
+
+......
+
+\noindent\textbf{Pregunta 4. Una vez calculado el PCA normado, ¿qué número de componentes principales deberíamos seleccionar? ¿Bajo que criterio seleccionó este número de componentes?}
+
+\noindent\textbf{Pregunta 5. Analice la representación de las variables originales sobre las dos primeras componentes en el primer plano factorial. ¿Que conclusiones podemos sacar de este análisis?}
+
+\noindent\textbf{Pregunta 6. Ahora examine con detenimiento el mapa de individuos sobre los planos factoriales que conforman las componentes (1,2) y (2,3). ¿Qué conclusiones puede sacar según la cercanía de algunas UE?}
+
+\noindent\textbf{Pregunta 7. Como hemos observado en clase, el ACP es una técnica bastante sensible a datos atípicos, ejecute nuevamente el ACP retirando del conjunto de datos a Estados Unidos, China, Arabia Saudi y Rusia. ¿En que cambia el ACP al excluir estos países?. ¿Se perciben clusters de países con mayor claridad?. Calcule únicamente el ACP normado.}
+
+```{r}
+
+# Crear una lista con los paises a eliminar
+paises_eliminar <- c("UnitedStates", "China", 
+                     "UnitedArabEmirates", "Russia")
+
+# Crear una nueva base sin los paises a eliminar
+data1_filtrada <- data1[
+  !rownames(data1) %in% paises_eliminar,]
+```
+
+```{r}
+
+```
+
+------------------------------------------------------------------------
+
+## Clustering
+
+\noindent\textbf{Pregunta 8. De acuerdo a lo aprendido en la clase de agrupamiento, utilice el primer plano factorial para determinar de manera aproximada el número de grupos en el análisis. ¿Cuántos clusters espera que existan en el conjunto de datos?}
+
+\noindent\textbf{Pregunta 9. Mediante el método de reducción de varianza explicada, determine un número fijo de clusters para su análisis. No tiene que ser el mismo número que el elegido por su compañero, recuerde que ninguno conoce las etiquetas reales de los grupos de los países.}
+
+\noindent\textbf{Pregunta 10. Determine mediante k-means y aglomeración jerárquica (usando enlace promedio) la clasificación en grupos para los países de estudio. Considere todas las variables de estudio ¿son diferentes los resultados de los dos análisis cluster?}
+
+\noindent\textbf{Pregunta 11. Grafique mediante boxplot la distribución de las 5 variables seleccionadas en el punto 2 diferenciando por los grupos encontrados mediante k-means (es decir, obtenga un boxplot por variable y por grupo: si por ejemplo k-means indica un total de 3 grupos, realice 3 boxplots, uno por grupo, para cada una de las 5 variables). ¿Observa diferencias importantes entre las distribuciones por grupos de la misma variable?}

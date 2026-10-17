@@ -1,0 +1,33 @@
+{
+    "id": "38E41B31",
+    "path": "~/GitHub/Analisis-estadistico-de-datos/Taller 02.Rmd",
+    "project_path": "Taller 02.Rmd",
+    "type": "r_markdown",
+    "hash": "1955745486",
+    "contents": "",
+    "dirty": false,
+    "created": 1792090709580.0,
+    "source_on_save": false,
+    "relative_order": 1,
+    "properties": {
+        "tempName": "Untitled1",
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "47,0",
+        "scrollLine": "46",
+        "rmdVisualMode": "true",
+        "rmdVisualWrapConfigured": "true",
+        "docOutlineVisible": "1",
+        "rmdVisualCollapsedChunks": "",
+        "rmdVisualModeLocation": "214:0",
+        "last_setup_crc32": "24f7e9ea389b18c"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1792096947,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1792096947460,
+    "read_only": false,
+    "read_only_alternatives": []
+}
