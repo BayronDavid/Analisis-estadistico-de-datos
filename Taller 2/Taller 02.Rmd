@@ -29,15 +29,16 @@ Sys.setlocale("LC_CTYPE", "Spanish_Colombia.utf8")
 ```{r librerias, message=FALSE, warning=FALSE, paged.print=FALSE}
 
 # Instalación de librerias en caso de no tenerlas
-# install.packages("plotly")
-# install.packages("MASS")
-# install.packages("psych")
-# install.packages("tidyverse")
-# install.packages("factoextra")
-# install.packages("GGally")
-# install.packages("dplyr")
+install.packages("plotly")
+install.packages("MASS")
+install.packages("psych")
+install.packages("tidyverse")
+install.packages("factoextra")
+install.packages("GGally")
+install.packages("dplyr")
 
 # Ejecución de librerias
+library(tidyverse)
 library(plotly)
 library(MASS)
 library(psych)
@@ -70,15 +71,15 @@ names(data1)
 
 Las 5 variables seleccionadas son:
 
--   Electricity_net_consumption_BKWH (35)
+- Electricity_net_consumption_BKWH (35)
 
--   Electricity_net_generation_BKWH (36)
+- Electricity_net_generation_BKWH (36)
 
--   Electricity_distribution_losses_BKWH (31)
+- Electricity_distribution_losses_BKWH (31)
 
--   Fossil_fuels_electricity_net_generation_BKWH (39)
+- Fossil_fuels_electricity_net_generation_BKWH (39)
 
--   Renewable_electricity_net_generation_BKWH (51)
+- Renewable_electricity_net_generation_BKWH (51)
 
 ```{r Base_Reducida}
 
@@ -119,7 +120,7 @@ Respecto a las covarianza, se observa que todas las variables se relacionan posi
 
 **Análisis descriptivo univariado**
 
-Para realizar el análisis descriptivo univariado se van a emplear boxplot, por lo que se genera una función que permita realizarlo de forma fácil y, a continuación, se generan y analizan cada uno de los boxplot.
+Para realizar el análisis descriptivo univariado se van a emplear y analizar sus boxplot.
 
 ```{r}
 
@@ -212,11 +213,21 @@ caja_Consumo <- boxplot(data2$`Consumo(C)`, plot = FALSE)
 
 caja_Consumo$stats
 length(caja_Consumo$out)
+
+#install.packages("moments")
+
+# Calcular la asimetría del consumo
+asimetria <- moments::skewness(data2$`Consumo(C)`)
+
+# Mostrar el resultado
+print(asimetria)
+
 ```
 
-En el punto anterior se identificó que la media de la generación neta de electricidad es de 181.816 BKWH, este valor dista bastante de la mediana (Q2): 37, debido a que la media es sensible a valores atípicos y, en este caso, se observan 11 datos atipicos con valores muy extremos (superiores a 287, es decir, casi 8 veces la mediana). Esto es acorde con la varianza obtenida: 181.816 y permite asumir que los datos siguen una distribución asimétrica positiva.
+En el punto anterior se identificó que la media del consumo neto de electricidad es de 181.81592 BKWH, este valor dista bastante de la mediana (Q2): 37, debido a que la media es sensible a valores atípicos y, en este caso, se observan 11 datos atipicos con valores extremos (superiores a 287, es decir, superiores a 8 veces la mediana) de las 111 observaciones que hay en la data.\
+Adicional, se calculó el coeficiente de asimetría de la variable y su resultado fue positivo(6.55). Por todo lo anterior, podemos afirmar que los datos siguen una distribución asimétrica positiva o hacia la derecha.
 
-Se puede observar que el 75% de los países tiene un consumo neto de electricidad menor o igual a 122.5 BKWH, con 11 países presentando valores 1.5 veces mayores al rango intercuartilico superior (287). Los mayores consumos de electricidad los presentan China (5079) y Estados Unidos (3915).
+Para finalizar, se puede observar que el 75% de los países tiene un consumo neto de electricidad menor o igual a 122.5 BKWH, con 11 países presentando valores 1.5 veces mayores al rango intercuartilico superior (287). Los mayores consumos de electricidad los presentan China (5079) y Estados Unidos (3915).
 
 ```{r Boxplot generación, fig.width=7, fig.height=3.2, fig.align="center"}
 
@@ -234,9 +245,14 @@ caja_Generacion <- boxplot(data2$`Generacion(G)`, plot = FALSE)
 
 caja_Generacion$stats
 length(caja_Generacion$out)
+
+asimetria2 <- moments::skewness(data2$`Generacion(G)`)
+
+# Mostrar el resultado
+print(asimetria2)
 ```
 
-Los datos de la electricidad neta generada son similares a los del consumo, con una media que dista bastante de la mediana (Media: 198.290 y Mediana: 43), lo que sugiere una distribución de con asimetría positiva. Se identifican 9 valores atípicos, los cuales son superiores a 321.
+Los datos de la electricidad neta generada son similares a los del consumo, con una media que dista bastante de la mediana (Media: 198.290 y Mediana: 43), con un coeficiente de asimetría de 6.4, se sugiere una distribución con asimetría positiva. Se identifican 9 valores atípicos, los cuales son superiores a 321.
 
 El 75% de los países tiene una generación neta de electricidad menor o igual a 136 BKWH. Los países que más generan electricidad son China (5400) y Estados Unidos (4105), los cuales, son también los mayores consumidores.
 
@@ -256,9 +272,14 @@ caja_Perdida <- boxplot(data2$`Perdida(P)`, plot = FALSE)
 
 caja_Perdida$stats
 length(caja_Perdida$out)
+
+asimetria3 <- moments::skewness(data2$`Perdida(P)`)
+
+# Mostrar el resultado
+print(asimetria3)
 ```
 
-Respecto a las pérdidas en la distribución de electricidad, esta variables no solo es la presenta la menor media (17.004) y la menor varianza (1990.936), sino que presenta también la menor mediana (3.80). El límite superior de los datos es 21, es decir, que todos los países -exceptuando los datos atípicos- tienen pérdidas en la distribución de energía iguales o inferiores a 21 BKWH, este valor de 2 cifras es muy inferior a los reportados en las variable de consumo y generación de electricidad. Se observan 15 datos atípicos.
+Esta variable no solo es la que presenta la menor media (17.0045) y la menor varianza (1990.936), sino que presenta también la menor mediana (3.80). El límite superior de los datos es 21, es decir, que todos los países -exceptuando los datos atípicos- tienen pérdidas en la distribución de energía iguales o inferiores a 21 BKWH, este valor de 2 cifras es muy inferior a los reportados en las variable de consumo y generación de electricidad, la variable de Pérdida también presenta una distribución con asimetría positiva. Se observan 15 datos atípicos.
 
 En este caso, los países con mayor consumo y generación de electricidad, también son los que presentan mayores pérdidas en la distribución de electricidad: China con 310 BKWH y Estados Unidos con 244 BKWH, siendo estos valores atípicos.
 
@@ -278,11 +299,16 @@ caja_Fossil_G <- boxplot(data2$Fossil_G, plot = FALSE)
 
 caja_Fossil_G$stats
 length(caja_Fossil_G$out)
+
+asimetria4 <- moments::skewness(data2$`Fossil_G`)
+
+# Mostrar el resultado
+print(asimetria4)
 ```
 
-La variable generación de energía con combustible fósil sigue la misma tendencia que las anteriores variables, con una media (132.584) muy superior a la mediana (21), lo que sugiere una distribución asimétrica positiva.
+La variable generación de energía con combustible fósil sigue la misma tendencia que las anteriores variables, con una media (132.584) muy superior a la mediana (21), y coeficiente de asimetría mayor a cero, lo que comprueba una distribución asimétrica positiva.
 
-En esta variable, se identifican por primera vez países con 0 generación de electricidad con combustibles fósiles. El 75% o los países presentan una generación de energía con combustible fósil igual o inferior a 80 BKWH. China y Estados Unidos repiten como los países que encabezan la lista, con 3985 BKWH y 2751 BKWH, respectivamente. Si se compara la generación de electricidad con esta va,riable referente puntualmente a combustibles fósiles, se observa que para china el 74% de la generación es con estos combustibles y en Estados Unidos corresponde al 67%.
+En esta variable, se identifican por primera vez países con 0 generación de electricidad con combustibles fósiles. El 75% o los países presentan una generación de energía con combustible fósil igual o inferior a 80 BKWH. China y Estados Unidos repiten como los países que encabezan la lista, con 3985 BKWH y 2751 BKWH, respectivamente. Si se compara la generación de electricidad con esta variable referente puntualmente a combustibles fósiles, se observa que para china el 74% de la generación es con estos combustibles y en Estados Unidos corresponde al 67%.
 
 ```{r Boxplot Renovable, fig.width=7, fig.height=3.2, fig.align="center"}
 
@@ -301,9 +327,14 @@ caja_Renewable_G <- boxplot(data2$Renewable_G, plot = FALSE)
 
 caja_Renewable_G$stats
 length(caja_Renewable_G$out)
+
+asimetria5 <- moments::skewness(data2$`Renewable_G`)
+
+# Mostrar el resultado
+print(asimetria5)
 ```
 
-Finalmente, la generación de energía renovable también presenta valores mínimos de 0, una media (44.771) superior a la mediana (8.3), sugiriendo distribución asimétrica positiva y la segunda menor varianza (20864.464).
+Finalmente, la generación de energía renovable también presenta valores mínimos de 0, una media (44.771) superior a la mediana (8.3), con distribución asimétrica positiva por coefciente mayor a 0, y con la segunda menor varianza (20864.464).
 
 Es necesario mencionar que, si bien en esta variable se mantienen en primer lugar China (1287) y Estados Unidos (563), dentro del top 4 (todos valores atípicos) ingresan Brazil (429) y Canada (412) y salen Japón y Rusia que se mantuvieron en 4to y 5to puesto en todas las otras variables, excepto en pérdidas en la distribución de electricidad, en el que Rusia está de 4to y Japón de 8vo. El 75% de los países presenta una generación de electricidad renovable menor o igual a 26.5, valor 3 veces menor al mismo porcentaje de generación con combustibles fósiles.
 
@@ -316,7 +347,7 @@ gather(data2) %>%
   facet_wrap(~key, scales = "free")
 ```
 
-Las gráficas de densidad confirman que las variables siguen una ditribución simétrica positiva, en la que la mayoría de países presenta valores muy bajos y unos pocos valores altos. También se identifican algunos picos en los datos, empezando todas las variables con valores altos, luego aumentando en mayor o menor medida, y continuando con una caída pronunciada con presencia de algunos picos.
+Las gráficas de densidad confirman que las variables siguen una ditribución simétrica positiva, en la que la mayoría de países presenta valores muy bajos y unos pocos países valores altos. También se identifican algunos picos en los datos, empezando todas las variables con valores altos, luego aumentando en mayor o menor medida, y continuando con una caída pronunciada con presencia de algunos picos.
 
 **Análisis descriptivo multivariado**
 
@@ -332,36 +363,194 @@ pairs.panels(data2,
              jiggle = FALSE)     # If TRUE, data points are jittered
 ```
 
-La gráfica permite identificar correlaciones positivas altas para todas las variables. Consumo, Generación y Generación con Combustibles Fósiles tienes correlaciones altísimas (0.99 y 1) y las gráficas de dispersión muestran líneas longitudinales, es decir que, al aumentar una, casi siempre va a aumentar la otra. Dependiendo del análisis, se debería evaluar quedarse con una sola variable, ya que parecen estar midiendo casi lo mismo y podrían sobrestimar el modelo.
+La gráfica permite identificar correlaciones positivas altas para todas las variables. Consumo con Generación, y Consumo y Generación con generación a partir de Combustibles Fósiles tienen correlaciones altísimas (0.99 y 1) y las gráficas de dispersión muestran líneas longitudinales crecientes, es decir que, al aumentar una, casi siempre va a aumentar la otra. Dependiendo del análisis, se debería evaluar quedarse con una sola variable, ya que parecen estar midiendo casi lo mismo y podrían sobrestimar el modelo.
 
-La menor correlación se observa entre generación de electricidad con combustibles fósiles y generación de electricidad renovable, lo cual tiene sentido, al ser esta última una alternativa ecológica a la primera.
+La menor correlación se observa entre las Pérdidas de electricidad con la Generación de electricidad Renovable.
 
-La variables de pérdidas de distribución de electricidad y generación de electricidad renovable presentan una correlación alta (0.91), sin embargo, la gráfica de distribución no parece presentan una relación tan alta, esto se debe probablemente a puntos que no parecen seguir una correlación lineal aparente.
+La variables de Pérdidas de distribución de electricidad y generación de electricidad con fuentes Fosiles presentan una correlación alta (0.91), sin embargo, en la gráfica de distribución no parece que presentarán una relación tan alta, esto se debe probablemente a que algunos puntos no sigan una correlación lineal aparente.
+
+```{r}
+#complemento usando ggpairs, nos damos cuenta nos brinda la misma información ya analizada
+GGally::ggpairs(data2)
+
+```
 
 \noindent\textbf{Pregunta 3. El conjunto de datos incluye 57 variables, analizarlas de forma individual podría representar un gasto computacional y de tiempo bastante agotador; por lo cuál una técnica de reducción de dimensionalidad sería ideal. Ejecute un ACP sobre estos datos, compare la contribución de las variables sobre el primer plano factorial de un ACP normado (escalado) y uno sin normalizar (sin escalar).}
 
-```{r}
+Teniendo en cuenta el flujo completo para realizar un ACP, que arranca con la exploración de las variables y conocimiento de la data, correlaciones entre las variables y no tener variables cuantitativas(57 variables numericas), procedemos a detectar outliers con la distancia de Mahalanobis antes de ejecutar ACP. Esto debido a que un outlier aumenta artificialmente la varianza en su dirección, pudiendo sesgar los ejes principales. Nosotros sabemos que hay outliers de paises extremos por el análisis de los puntos anteriores, al hacer el analisis de outliers se toma la decision de no sacarlos sino hasta el punto 7 como sugiere la guía taller. Se continua con componenetes principales ACP. Primero se realiza el entendimiento de todas las variables, y se verifican y extraen las columnas que encontramos estaban duplicadas.
 
-pc_b <-prcomp(data1)
-summary(pc_b)
+```{r}
+dim(data1)
+
+# Tipos de variables
+table(sapply(data1, class))
+
+# Verificamos que no hay valores faltantes por columna
+sort(colSums(is.na(data1)), decreasing = TRUE)
+
+# Variables con varianza cero
+nombres <- names(data1)[
+  sapply(data1, function(x) {
+    is.numeric(x) &&
+      (all(is.na(x)) || var(x, na.rm = TRUE) == 0)
+  })
+]
+
+nombres
+
+# Columnas duplicadas exactamente
+duplicadas <- duplicated(as.list(data1))
+names(data1)[duplicadas]
 ```
 
 ```{r}
+# Identificar los índices de las columnas duplicadas
+duplicadas_idx <- which(duplicated(as.list(data1)))
+
+# Buscar la columna original idéntica
+for (j in duplicadas_idx) {
+  anteriores <- which(vapply(
+    data1[seq_len(j - 1)],
+    function(x) identical(x, data1[[j]]),
+    logical(1)
+  ))
+  
+  cat("Columna duplicada:", names(data1)[j], "\n")
+  cat("Columna original:", names(data1)[anteriores], "\n\n")
+}
+
+```
+
+Resulta que al evaluar los outliers de los datos con Mahalanobis no nos estaba generando la matriz de covarianzas, lo que señalaba que teníamos que resolver un error para la data de 57 variables 111 observaciones por singularidad, con el codigo anterior nos dimos cuenta que 2 columnas están identicamente duplicadas y que son redundantes. Luego se debe eliminar la columna duplicada.
+
+```{r}
+# Crear una copia sin la variable duplicada
+data_sin_dup <- subset(
+  data1,
+  select = -Refined_petroleum_products_consumption_TBPD
+)
+
+# Verificar las dimensiones
+dim(data_sin_dup)
+```
+
+```{r}
+# Calcular el rango de la matriz de covarianzas
+rango <- qr(cov(data_sin_dup))$rank
+
+cat("Rango:", rango, "\n")
+cat("Número de variables:", ncol(data_sin_dup), "\n")
+```
+
+Este resultado nos muestra que ahora las variables son 56, Y que el rango de la matriz de covarianzas es 51, luego la diferencia muestra 5 dimensiones linealmente dependientes entre si, luego Mahalanovis no podrá invertir la matriz de covarianzas porque seguirá siendo singular. Verificamos que no tenemos valores faltantes
+
+```{r}
+
+# Comprobar valores faltantes
+cat("\nColumnas con valores NA:\n")
+print(sum(colSums(is.na(data_sin_dup)) > 0))
+
+cat("\nTotal de valores NA:\n")
+print(sum(is.na(data_sin_dup)))
+
+# Asegurar que todas las columnas sean numéricas
+cat("\nTipos de variables:\n")
+print(table(sapply(data_sin_dup, class)))
+
+# Calcular el rango de los datos centrados, soLO CENTRADOS, sin escalar
+X <- scale(data_sin_dup, center = TRUE, scale = FALSE)
+
+cat("\nRango de X:\n")
+print(qr(X, tol = 1e-10)$rank)
+
+# Calcular el rango de la matriz de covarianzas
+cat("\nRango de la matriz de covarianzas:\n")
+print(qr(cov(data_sin_dup), tol = 1e-10)$rank)
+```
+
+Ahora verificamos que estas 56 variables centradas no sean linealmente dependientes, sino independientes:
+
+```{r}
+# Descomposición QR
+qr_X <- qr(X, tol = 1e-10)
+
+cat("Rango de los datos centrados:", qr_X$rank, "\n")
+cat("Número de columnas:", ncol(X), "\n")
+
+# Identificar columnas dependientes solo si existen
+if (qr_X$rank < ncol(X)) {
+  dependientes <- qr_X$pivot[
+    (qr_X$rank + 1):ncol(X)
+  ]
+  
+  print(names(data_sin_dup)[dependientes])
+} else {
+  cat("No se detectaron columnas linealmente dependientes.\n")
+}
+```
+
+Procedemos a desarrollar un ACP sobre los datos sin duplicar centrando con la funcion de prcomp.
+
+```{r}
+# ACP sin escalar: matriz de covarianzas
+acp_sin_escalar <- prcomp(
+  data_sin_dup,
+  center = TRUE,
+  scale. = FALSE
+)
+
+# ACP normado: matriz de correlaciones
+acp_escalado <- prcomp(
+  data_sin_dup,
+  center = TRUE,
+  scale. = TRUE
+)
+
+# Varianza explicada por las dos primeras componentes
+summary(acp_sin_escalar)$importance[, 1:2]
+summary(acp_escalado)$importance[, 1:2]
+```
+
+```{r}
+#realizamos un screeplot a los datos sin escalar
 
 screeplot(pc_b, col = rojo, pch = 16,
 type = "lines", cex = 2, lwd = 2, main = "")
 ```
 
-```{r}
+Usando la regla del codo el k está en 2, que explica el xx% de la variabilidad. con 2 componentes resumimos 57 variables con minima pérdida de información
 
+```{r}
+pc_f = prcomp(data1, rank.=2)
+round(pc_f$rotation, 3)
+round(pc_f$x, 2)# Puntajes: coordenadas 
+
+round(summary(pc_b)$importance, 3)
+
+```
+
+```         
+```
+
+```{r}
+#Luego se realiza el proceso con escalar
 pc_c <-prcomp(data1, scale = TRUE)
-summary(pc_c)
+con_esc = summary(pc_c)$importance[2, 1:2]
 ```
 
 ```{r}
 
 screeplot(pc_c, col = rojo, pch = 16,
 type = "lines", cex = 2, lwd = 2, main = "")
+
+
+rbind(sin_escala=round(sin_esc,3), con_escala=round(con_esc,3))
+```
+
+```{r}
+pc_f = prcomp(data1, scale=TRUE, rank.=2)
+round(pc_f$rotation, 3)
+round(pc_f$x, 2)# Puntajes: coordenadas 
 ```
 
 .....
