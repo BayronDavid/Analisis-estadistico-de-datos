@@ -377,7 +377,8 @@ GGally::ggpairs(data2)
 
 \noindent\textbf{Pregunta 3. El conjunto de datos incluye 57 variables, analizarlas de forma individual podría representar un gasto computacional y de tiempo bastante agotador; por lo cuál una técnica de reducción de dimensionalidad sería ideal. Ejecute un ACP sobre estos datos, compare la contribución de las variables sobre el primer plano factorial de un ACP normado (escalado) y uno sin normalizar (sin escalar).}
 
-Teniendo en cuenta el flujo completo para realizar un ACP, que arranca con la exploración de las variables y conocimiento de la data, correlaciones entre las variables y no tener variables cuantitativas(57 variables numericas), procedemos a detectar outliers con la distancia de Mahalanobis antes de ejecutar ACP. Esto debido a que un outlier aumenta artificialmente la varianza en su dirección, pudiendo sesgar los ejes principales. Nosotros sabemos que hay outliers de paises extremos por el análisis de los puntos anteriores, al hacer el analisis de outliers se toma la decision de no sacarlos sino hasta el punto 7 como sugiere la guía taller. Se continua con componenetes principales ACP. Primero se realiza el entendimiento de todas las variables, y se verifican y extraen las columnas que encontramos estaban duplicadas.
+Teniendo en cuenta que el flujo completo para realizar un ACP arranca con la exploración de las variables y conocimiento de la data, luego observando las correlaciones entre las variables y el verificar no tener variables cuantitativas(57 variables numericas, correcto), procedemos a detectar outliers con la distancia de Mahalanobis antes de ejecutar ACP, ya que como vimos en el análisis de los puntos anteriores, hay paises con observaciones muy superiores. Se realiza este análisis debido a que un outlier aumenta artificialmente la varianza en su dirección, pudiendo sesgar los ejes principales de la metodología ACP.\
+Exploración de las 57 variables:
 
 ```{r}
 dim(data1)
@@ -421,7 +422,7 @@ for (j in duplicadas_idx) {
 
 ```
 
-Resulta que al evaluar los outliers de los datos con Mahalanobis no nos estaba generando la matriz de covarianzas, lo que señalaba que teníamos que resolver un error para la data de 57 variables 111 observaciones por singularidad, con el codigo anterior nos dimos cuenta que 2 columnas están identicamente duplicadas y que son redundantes. Luego se debe eliminar la columna duplicada.
+Despues de entender el conjunto de datos, y realizar el procedimiento para evaluar los outliers mediante Mahalanobis, se estaba presentando un error de singularidad, no se estaba pudiendo generar la matriz de covarianzas y el problema radicaba en que 2 columnas estaban duplicadas, eran identicas y redundantes, lo que imposibilita la generación de la matriz. Luego, procedimos a eliminar la columna duplicada. Pero, al continuar con el procedimiento mencionado de Mahalanobis este arrojaba sugerencia de 42 paises outliera, como representa mas del 30% de la muestra, y la guí del taller pide eliminar paises solo en el punto 7. Se decidió continuar con la data sin la columna duplicada y aplicar ACP con y sin escalar, como se muestra en los siguientes códigos.
 
 ```{r}
 # Crear una copia sin la variable duplicada
@@ -433,16 +434,6 @@ data_sin_dup <- subset(
 # Verificar las dimensiones
 dim(data_sin_dup)
 ```
-
-```{r}
-# Calcular el rango de la matriz de covarianzas
-rango <- qr(cov(data_sin_dup))$rank
-
-cat("Rango:", rango, "\n")
-cat("Número de variables:", ncol(data_sin_dup), "\n")
-```
-
-Este resultado nos muestra que ahora las variables son 56, Y que el rango de la matriz de covarianzas es 51, luego la diferencia muestra 5 dimensiones linealmente dependientes entre si, luego Mahalanovis no podrá invertir la matriz de covarianzas porque seguirá siendo singular. Verificamos que no tenemos valores faltantes
 
 ```{r}
 
@@ -468,7 +459,7 @@ cat("\nRango de la matriz de covarianzas:\n")
 print(qr(cov(data_sin_dup), tol = 1e-10)$rank)
 ```
 
-Ahora verificamos que estas 56 variables centradas no sean linealmente dependientes, sino independientes:
+Ahora que verificamos independencia procedemos a desarrollar ACP sobre los datos sin duplicados centrando con la funcion de prcomp.
 
 ```{r}
 # Descomposición QR
@@ -489,17 +480,15 @@ if (qr_X$rank < ncol(X)) {
 }
 ```
 
-Procedemos a desarrollar un ACP sobre los datos sin duplicar centrando con la funcion de prcomp.
-
 ```{r}
-# ACP sin escalar: matriz de covarianzas
+# 1. ACP sin escalar
 acp_sin_escalar <- prcomp(
   data_sin_dup,
   center = TRUE,
   scale. = FALSE
 )
 
-# ACP normado: matriz de correlaciones
+# 2.ACP normado
 acp_escalado <- prcomp(
   data_sin_dup,
   center = TRUE,
@@ -509,66 +498,163 @@ acp_escalado <- prcomp(
 # Varianza explicada por las dos primeras componentes
 summary(acp_sin_escalar)$importance[, 1:2]
 summary(acp_escalado)$importance[, 1:2]
+
 ```
+
+En el ACP sin escalar, la primera componente principal explica el 80,43 % de la varianza total, mientras que la segunda explica el 16,37 %. En conjunto, ambas componentes representan el 96,80 % de la variabilidad de los datos. Este resultado indica que el primer plano factorial resume una proporción muy elevada de la varianza original. Sin embargo, al conservarse las escalas originales, y como se observa a partir de las magnitudes de la desviación estandar de las componentes PC1 Y PC2, las variables con mayor varianza absoluta ejercen una influencia predominante en la construcción de los ejes.
+
+Por otra parte, en el ACP normado, la primera componente explica el 61,33 % de la varianza y la segunda el 7,84 %, acumulando un 69,18 % en el plano factorial. La reducción de la proporción de varianza explicada por las dos primeras componentes indica que, al estandarizar las variables, la variabilidad se distribuye de manera diferente entre los ejes principales.
+
+En el ACP normado, cada variable se centra y se divide por su desviación estándar. Así, las variables quedan expresadas en una escala comparable y ninguna domina únicamente por tener valores numéricos más grandes.
+
+La comparación evidencia que el ACP sin escalar concentra una mayor proporción de la varianza en las dos primeras componentes, mientras que el ACP normado permite analizar las relaciones entre las variables sin que sus diferencias de escala determinen directamente su influencia. Por tanto, la selección de cuál usar debe responder al objetivo de estudio y considerar las contribuciones de las variables a los ejes del plano factorial.
+
+Ahora se busca como contribuyen las variables sobre el primer plano factorial.
 
 ```{r}
-#realizamos un screeplot a los datos sin escalar
+# Contribuciones porcentuales por variable y componente
 
-screeplot(pc_b, col = rojo, pch = 16,
-type = "lines", cex = 2, lwd = 2, main = "")
+contrib_sin <- acp_sin_escalar$rotation[, 1:2]^2 * 100
+contrib_norm <- acp_escalado$rotation[, 1:2]^2 * 100
+
+# Contribución conjunta al primer plano factorial
+# Promedio de las contribuciones a PC1 y PC2
+plano_sin <- rowMeans(contrib_sin)
+plano_norm <- rowMeans(contrib_norm)
+
+# Tabla comparativa
+comparacion <- data.frame(
+  Variable = rownames(acp_sin_escalar$rotation),
+  Sin_escalar_PC1 = contrib_sin[, 1],
+  Sin_escalar_PC2 = contrib_sin[, 2],
+  Sin_escalar_plano = plano_sin,
+  Normado_PC1 = contrib_norm[, 1],
+  Normado_PC2 = contrib_norm[, 2],
+  Normado_plano = plano_norm
+)
+
+# Diez variables que más contribuyen al plano en cada ACP
+head(comparacion[
+  order(comparacion$Sin_escalar_plano, decreasing = TRUE),
+], 10)
+
+head(comparacion[
+  order(comparacion$Normado_plano, decreasing = TRUE),
+], 10)
 ```
 
-Usando la regla del codo el k está en 2, que explica el xx% de la variabilidad. con 2 componentes resumimos 57 variables con minima pérdida de información
-
-```{r}
-pc_f = prcomp(data1, rank.=2)
-round(pc_f$rotation, 3)
-round(pc_f$x, 2)# Puntajes: coordenadas 
-
-round(summary(pc_b)$importance, 3)
-
-```
-
-```         
-```
-
-```{r}
-#Luego se realiza el proceso con escalar
-pc_c <-prcomp(data1, scale = TRUE)
-con_esc = summary(pc_c)$importance[2, 1:2]
-```
-
-```{r}
-
-screeplot(pc_c, col = rojo, pch = 16,
-type = "lines", cex = 2, lwd = 2, main = "")
-
-
-rbind(sin_escala=round(sin_esc,3), con_escala=round(con_esc,3))
-```
-
-```{r}
-pc_f = prcomp(data1, scale=TRUE, rank.=2)
-round(pc_f$rotation, 3)
-round(pc_f$x, 2)# Puntajes: coordenadas 
-```
-
-.....
-
-```{r}
-pc_f <-prcomp(mtcars2, scale = TRUE, rank. = 2)
-pc_f
-```
-
-......
+Al observar los resultados del primer plano factorial sin escalar, observamos variables importantes de producción, consumo, comercio de petróleo y generación de electricidad que tienen una influencia significativa al conservar su escala. Mientras que en el ACP escalado toman mas relevancia indicadores de capacidad instalada, producción petrolera y generación de energía.
 
 \noindent\textbf{Pregunta 4. Una vez calculado el PCA normado, ¿qué número de componentes principales deberíamos seleccionar? ¿Bajo que criterio seleccionó este número de componentes?}
 
+Usando el gráfico de sedimentación o screeplot y el criterio "del codo" en el PCA normado podemos observar que el mejor k es de 2, estas 2 componentes logran resumir las 56 variables sin pérdida valiosa de información, vemos adicionalemente que un k de 3 tiene un menor aporte porque la curva comienza a estabilizarse ahí.
+
+```{r}
+round(acp_escalado$rotation, 3)
+round(acp_escalado$x, 2)
+
+screeplot(acp_escalado, col = rojo, pch = 16,
+          type = "lines", cex = 2, lwd = 2, main = "")
+
+```
+
 \noindent\textbf{Pregunta 5. Analice la representación de las variables originales sobre las dos primeras componentes en el primer plano factorial. ¿Que conclusiones podemos sacar de este análisis?}
+
+Se desarrolla el círculo de correlaciones con factoextra
+
+```{r}
+install.packages("factoextra")
+library(factoextra)
+
+fviz_pca_var(
+  acp_escalado,
+  axes = c(1, 2),
+  col.var = "contrib",
+  label="none",
+  repel = TRUE,
+  title = "Círculo de correlaciones - ACP normado - Variables"
+)
+```
+
+1.  En cuanto a la longitud de las flechas podemos confirmar que la mayoría al ser largas y cercanas a la circunferencia tienen una mayor explicación y están mejor o más representadas por PC1 Y PC2
+2.  Como los angulos entre las variables es pequeño, menor a 90°, se concluye que se tiene una alta correlación positiva entre la gran mayoría de variables, solo una tiene una correlacion negativa con las demás porque su angulo es grande,mayor a 90°.
+3.  La gran mayoría de variables presentan un color azul claro, lo que muestra una mayor contribución en la construcción de las componentes principales.
+4.  Debido a que la mayoría de variables apuntan hacia la derecha hay una asociación positiva de estas con la primera componente principal.
 
 \noindent\textbf{Pregunta 6. Ahora examine con detenimiento el mapa de individuos sobre los planos factoriales que conforman las componentes (1,2) y (2,3). ¿Qué conclusiones puede sacar según la cercanía de algunas UE?}
 
+Plano factorial (1, 2)
+
+```{r}
+
+grafico_12 <- fviz_pca_ind(
+  acp_escalado,
+  axes = c(1, 2),
+  geom = "point",label="all",
+  title = "Mapa de países: componentes 1 y 2"
+) +
+  theme_minimal()
+
+print(grafico_12)
+```
+
+Para ver unicamente los nombres de los mas extremos, como hay muchos paises muy cerca se dificulta la lectura de los labels de los 111 países
+
+```{r}
+
+```
+
+:
+
+```{r}
+
+grafico_12 <- fviz_pca_ind(
+  acp_escalado,
+  axes = c(1, 2),
+  geom = c("point", "text"),
+  label = "all",
+  repel = TRUE,
+  title = "Mapa de países: componentes 1 y 2"
+) +
+  theme_minimal()
+
+print(grafico_12)
+```
+
+1.  Los países cercanos presentan perfiles energéticos similares en las dimensiones CP1 Y CP2, mientras que los alejados como China y United States, tienen perfiles diferentes en esas dimensiones
+2.  Los países que se encuentran cerca al origen presentan valores próximos al perfil promedio en las dimensiones representadas
+
+Plano factorial (2, 3)
+
+```{r}
+grafico_23 <- fviz_pca_ind(
+  acp_escalado,
+  axes = c(2, 3),
+  geom = "point",
+  title = "Mapa de países: componentes 2 y 3"
+) +
+  theme_minimal()
+
+print(grafico_23)
+
+```
+
+```{r}
+fviz_pca_ind(
+  acp_escalado,
+  axes = c(2, 3),
+  label = "all",
+  repel = TRUE,
+  title = "Países en el plano factorial (2, 3)"
+)
+```
+
+1.  Este gráfico muestra PC2 Y PC3 dejando por fuera a PC1, y lo que nos permite afirmar es que hay países con caracteristicas relacionadas en la segunda y tercera componente que no muestra necesariamente la primera.
+2.  se observan las relaciones entre los paises y se identifican similitudes en las variables por su cercanía en el plano factorial (2,3)
+
 \noindent\textbf{Pregunta 7. Como hemos observado en clase, el ACP es una técnica bastante sensible a datos atípicos, ejecute nuevamente el ACP retirando del conjunto de datos a Estados Unidos, China, Arabia Saudi y Rusia. ¿En que cambia el ACP al excluir estos países?. ¿Se perciben clusters de países con mayor claridad?. Calcule únicamente el ACP normado.}
+
+Se filtran los 4 países mencionados de la siguiente forma:
 
 ```{r}
 
@@ -576,14 +662,104 @@ pc_f
 paises_eliminar <- c("UnitedStates", "China", 
                      "UnitedArabEmirates", "Russia")
 
-# Crear una nueva base sin los paises a eliminar
+# Crear una nueva base sin los 4 paises 
 data1_filtrada <- data1[
   !rownames(data1) %in% paises_eliminar,]
+
+# Crear una nueva base sin esos países
+data_sin_extremos <- data_sin_dup[
+  !rownames(data_sin_dup) %in% paises_eliminar,
+]
+
+# Comprobar las dimensiones
+dim(data_sin_extremos)
+```
+
+Ahora ejecutamos únicamente el ACP normado:
+
+```{r}
+acp_sin_extremos <- prcomp(
+  data_sin_extremos,
+  center = TRUE,
+  scale. = TRUE
+)
+
+# Resumen de la varianza explicada
+summary(acp_sin_extremos)
+```
+
+Y comparamos la varianza:
+
+```{r}
+# Varianza explicada por cada componente
+var_original <- summary(acp_escalado)$importance
+var_sin_extremos <- summary(acp_sin_extremos)$importance
+# Comparar los primeros cinco componentes
+comparacion <- data.frame(
+  Componente = paste0("PC", 1:5),
+  Original = round(
+    var_original[2, 1:5] * 100, 2
+  ),
+  Sin_cuatro_paises = round(
+    var_sin_extremos[2, 1:5] * 100, 2
+  ),
+  Acumulada_original = round(
+    var_original[3, 1:5] * 100, 2
+  ),
+  Acumulada_sin_extremos = round(
+    var_sin_extremos[3, 1:5] * 100, 2
+  )
+)
+
+print(comparacion)
 ```
 
 ```{r}
+# Porcentaje de varianza explicado por PC1
+pc1_original <- summary(acp_escalado)$importance[2, 1] * 100
+
+pc1_sin_extremos <- summary(acp_sin_extremos)$importance[2, 1] * 100
+
+# Comparar ambos resultados
+cat("PC1 original:", round(pc1_original, 2), "%\n")
+cat("PC1 sin los cuatro países:", round(pc1_sin_extremos, 2), "%\n")
+# Varianza explicada por las dos primeras componentes
+
+summary(acp_escalado)$importance[, 1:2]
+summary(acp_sin_extremos)$importance[, 1:2]
 
 ```
+
+Observamos que al eliminar los 4 países el ACP muestra una disminución en la proporción de varianza que explica el modelo, de 69,17% a 58,95%, concentrado principalmente en la disminución de la primera componente.
+
+Para poder revisar si hay clusteres de países excluyendo los 4 países desarrollamos:
+
+```{r}
+# ACP original
+grafico_original <- fviz_pca_ind(
+  acp_escalado,
+  axes = c(1, 2),
+  geom = "point",
+  label = "none",
+  title = "ACP normado original: componentes 1 y 2"
+) +
+  theme_minimal()
+
+# ACP sin los cuatro países
+grafico_sin_extremos <- fviz_pca_ind(
+  acp_sin_extremos,
+  axes = c(1, 2),
+  geom = "point",
+  label = "none",
+  title = "ACP normado sin cuatro países: componentes 1 y 2"
+) +
+  theme_minimal()
+
+print(grafico_original)
+print(grafico_sin_extremos)
+```
+
+Como mencionamos, PC1 pierde importancia relativa mientras que PC2 pasa a explicar del 7,85% al 11,48% de la variabilidad total. Por ello sería prudente incluir mas componentes para representar de manera mayor la información de las variables originales.
 
 ------------------------------------------------------------------------
 
