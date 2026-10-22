@@ -29,13 +29,13 @@ Sys.setlocale("LC_CTYPE", "Spanish_Colombia.utf8")
 ```{r librerias, message=FALSE, warning=FALSE, paged.print=FALSE}
 
 # Instalación de librerias en caso de no tenerlas
-install.packages("plotly")
-install.packages("MASS")
-install.packages("psych")
-install.packages("tidyverse")
-install.packages("factoextra")
-install.packages("GGally")
-install.packages("dplyr")
+# install.packages("plotly")
+# install.packages("MASS")
+# install.packages("psych")
+# install.packages("tidyverse")
+# install.packages("factoextra")
+# install.packages("GGally")
+# install.packages("dplyr")
 
 # Ejecución de librerias
 library(tidyverse)
@@ -660,7 +660,7 @@ Se filtran los 4 países mencionados de la siguiente forma:
 
 # Crear una lista con los paises a eliminar
 paises_eliminar <- c("UnitedStates", "China", 
-                     "UnitedArabEmirates", "Russia")
+                     "SaudiArabia", "Russia")
 
 # Crear una nueva base sin los 4 paises 
 data1_filtrada <- data1[
@@ -730,7 +730,7 @@ summary(acp_sin_extremos)$importance[, 1:2]
 
 ```
 
-Observamos que al eliminar los 4 países el ACP muestra una disminución en la proporción de varianza que explica el modelo, de 69,17% a 58,95%, concentrado principalmente en la disminución de la primera componente.
+Observamos que al eliminar los 4 países el ACP muestra una disminución en la proporción de varianza que explica el modelo, de 69,17% a 58,56%, concentrado principalmente en la disminución de la primera componente.
 
 Para poder revisar si hay clusteres de países excluyendo los 4 países desarrollamos:
 
@@ -759,7 +759,7 @@ print(grafico_original)
 print(grafico_sin_extremos)
 ```
 
-Como mencionamos, PC1 pierde importancia relativa mientras que PC2 pasa a explicar del 7,85% al 11,48% de la variabilidad total. Por ello sería prudente incluir mas componentes para representar de manera mayor la información de las variables originales.
+Como mencionamos, PC1 pierde importancia relativa mientras que PC2 pasa a explicar del 7,85% al 10,40% de la variabilidad total. Por ello sería prudente incluir mas componentes para representar de manera mayor la información de las variables originales.
 
 ------------------------------------------------------------------------
 
@@ -767,8 +767,145 @@ Como mencionamos, PC1 pierde importancia relativa mientras que PC2 pasa a explic
 
 \noindent\textbf{Pregunta 8. De acuerdo a lo aprendido en la clase de agrupamiento, utilice el primer plano factorial para determinar de manera aproximada el número de grupos en el análisis. ¿Cuántos clusters espera que existan en el conjunto de datos?}
 
+Para los puntos 8 a 11 trabajamos con `data_sin_extremos` (sin los 4 países atípicos del punto 7 y sin la columna duplicada) y con el ACP normado `acp_sin_extremos`. Para el clustering usamos la misma tabla estandarizada, ya que las variables están en unidades muy distintas (TBPD, BKWH, MK, etc.).
+
+```{r p8_plano_factorial, fig.width=9, fig.height=6}
+# Tabla estandarizada para el clustering
+datos_esc <- scale(data_sin_extremos)
+
+# Varianza explicada por el primer plano factorial
+summary(acp_sin_extremos)$importance[, 1:2]
+
+# Mapa de países en el primer plano factorial
+fviz_pca_ind(
+  acp_sin_extremos,
+  axes = c(1, 2),
+  repel = TRUE,
+  labelsize = 2.5,
+  col.ind = rojo_oscuro,
+  title = "Primer plano factorial sin países atípicos"
+) +
+  theme_minimal()
+```
+
+El primer plano factorial resume cerca del 59 % de la variabilidad total. El PC1 explica cerca del 48 % y el PC2 cerca del 10 %, así que es una buena aproximación para ver cómo se agrupan los países. El PC1 funciona como un índice de *tamaño energético*: a la derecha están los países que más consumen y producen petróleo y electricidad. El PC2 separa a los grandes *productores y exportadores de crudo* (Iraq, Venezuela, Irán, Kuwait, Nigeria, Canadá) de los países *industriales importadores* con generación nuclear y renovable (Francia, Alemania, Italia, España, Corea del Sur).
+
+Visualmente se distinguen aproximadamente **4 grupos**:
+
+1. Una nube grande y compacta de países con bajo peso energético, en el extremo izquierdo del PC1. Aquí está la mayoría.
+2. Los exportadores de petróleo, que se separan por el PC2.
+3. Las potencias industriales importadoras de Europa, más Corea del Sur.
+4. Los gigantes extremos (India y Japón, Brasil y Canadá), muy alejados del resto sobre el PC1.
+
+Por lo tanto, esperamos alrededor de **4 clusters**. Como el grupo de exportadores no se separa con total claridad de la nube central, el número real podría estar entre 3 y 5.
+
+
 \noindent\textbf{Pregunta 9. Mediante el método de reducción de varianza explicada, determine un número fijo de clusters para su análisis. No tiene que ser el mismo número que el elegido por su compañero, recuerde que ninguno conoce las etiquetas reales de los grupos de los países.}
 
+Siguiendo el método visto en clase, calculamos cuánta varianza "explican" los clusters para k = 1, ..., 10. La reducción es la diferencia entre la distancia total y la suma de distancias dentro de los grupos.
+
+```{r p9_reduccion_varianza}
+set.seed(123)
+
+# Distancia cuadrada total (equivale a tener un solo grupo)
+dist_total <- sum(dist(datos_esc)^2) / nrow(datos_esc)
+
+reduccion <- numeric(10)
+for (k in 1:10) {
+  # nstart = 25: se prueban 25 arranques aleatorios y se toma el mejor
+  km_k <- kmeans(datos_esc, centers = k, nstart = 25)
+  reduccion[k] <- dist_total - sum(km_k$withinss)
+}
+
+tabla_codo <- data.frame(
+  k = 1:10,
+  reduccion = round(reduccion, 1),
+  pct_explicado = round(100 * reduccion / dist_total, 1)
+)
+tabla_codo$ganancia_pct <- c(NA, diff(tabla_codo$pct_explicado))
+tabla_codo
+```
+
+```{r p9_grafico_codo, fig.width=7, fig.height=4}
+plot(1:10, reduccion, type = "b", pch = 19, col = rojo,
+     xlab = "Número de clusters (k)",
+     ylab = "Reducción de varianza explicada",
+     main = "Método de reducción de varianza (codo)")
+abline(v = 4, col = rojo_oscuro, lty = 2)
+```
+
+La varianza explicada por los clusters es:
+
+| k | Varianza explicada |
+|---|---|
+| 2 | 36 % |
+| 3 | 46 % |
+| 4 | 54 % |
+| 5 | 61 % |
+| 6 | 66 % |
+
+El salto más grande ocurre al pasar de 1 a 2 grupos. Después las ganancias se reducen a cerca de 10, 8 y 7 puntos porcentuales, y a partir de k = 6 cada grupo adicional aporta menos de 5 puntos. El codo está entre k = 3 y k = 5.
+
+Elegimos **k = 4** por tres razones:
+
+* Coincide con lo que observamos en el primer plano factorial (pregunta 8).
+* Es la solución más parsimoniosa antes de que la curva se aplane.
+* Es **estable**: con distintas semillas, k-means siempre encuentra los mismos 4 grupos.
+
+Con k = 5 aparece un grupo intermedio de exportadores de petróleo y economías medianas. Sin embargo, sus integrantes cambian según la semilla (entre 10 y 15 países), lo que indica que esa separación no es robusta.
+
+
 \noindent\textbf{Pregunta 10. Determine mediante k-means y aglomeración jerárquica (usando enlace promedio) la clasificación en grupos para los países de estudio. Considere todas las variables de estudio ¿son diferentes los resultados de los dos análisis cluster?}
+
+```{r p10_kmeans, fig.width=9, fig.height=6}
+set.seed(123)
+km4 <- kmeans(datos_esc, centers = 4, nstart = 25)
+
+# Tamaño e integrantes de cada grupo
+km4$size
+split(rownames(datos_esc), km4$cluster)
+
+fviz_cluster(km4, data = datos_esc, repel = TRUE, labelsize = 7,
+             ellipse.type = "convex", main = "k-means (k = 4)") +
+  theme_minimal()
+```
+
+```{r p10_jerarquico, fig.width=10, fig.height=6}
+jer_prom <- hclust(dist(datos_esc), method = "average")
+
+plot(jer_prom, cex = 0.45, hang = -1,
+     main = "Agrupamiento jerárquico: enlace promedio", xlab = "", sub = "")
+rect.hclust(jer_prom, k = 4, border = rojo)
+
+grupos_jer <- cutree(jer_prom, k = 4)
+table(grupos_jer)
+split(rownames(datos_esc), grupos_jer)
+```
+
+```{r p10_comparacion}
+# Tabla cruzada entre los dos métodos
+table(KMeans = km4$cluster, Jerarquico = grupos_jer)
+```
+
+Los números de los grupos son etiquetas arbitrarias, así que la comparación se hace por los países que forman cada grupo:
+
+| Grupo | k-means (k = 4) | Jerárquico, enlace promedio (k = 4) |
+|---|---|---|
+| Gigantes consumidores | India, Japón | India, Japón |
+| Grandes productores con alta generación hidroeléctrica | Brasil, Canadá | Brasil, Canadá |
+| Potencias industriales importadoras | Francia, Alemania, Italia, Corea del Sur, España, Reino Unido | Solo Francia y Corea del Sur |
+| Resto de países | 97 países | 101 países (incluye Alemania, Italia, España y Reino Unido) |
+
+Los resultados son **parecidos pero no iguales**. Ambos métodos aíslan a India y Japón y a Brasil y Canadá, y dejan a la gran mayoría de países en un grupo común. La diferencia está en las potencias europeas. k-means las reúne en un grupo propio de 6 países. El enlace promedio solo separa a Francia y Corea del Sur, que son los dos países con mayor generación nuclear, y deja a Alemania, Italia, España y Reino Unido dentro del grupo grande.
+
+Esto se explica por cómo funciona cada método:
+
+* **k-means** minimiza la varianza dentro de los grupos, por lo que forma grupos compactos alrededor de centroides.
+* **El enlace promedio** une los grupos según la distancia promedio entre todos sus puntos. Con datos tan asimétricos como estos (pocos países enormes y muchos pequeños), separa primero las observaciones más alejadas y deja un grupo grande que encadena al resto.
+
+Para caracterizar a los países, k-means da una partición más interpretable. El dendrograma, en cambio, muestra con claridad cuáles son los países más atípicos.
+
+> Para el punto 11, los grupos de k-means quedan en `km4$cluster`. Se pueden unir a la base con `data_sin_extremos$grupo <- factor(km4$cluster)`.
+
 
 \noindent\textbf{Pregunta 11. Grafique mediante boxplot la distribución de las 5 variables seleccionadas en el punto 2 diferenciando por los grupos encontrados mediante k-means (es decir, obtenga un boxplot por variable y por grupo: si por ejemplo k-means indica un total de 3 grupos, realice 3 boxplots, uno por grupo, para cada una de las 5 variables). ¿Observa diferencias importantes entre las distribuciones por grupos de la misma variable?}
