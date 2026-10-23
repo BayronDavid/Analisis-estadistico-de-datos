@@ -4,7 +4,7 @@
 \documentclass[
 ]{article}
 \usepackage{xcolor}
-\usepackage[margin=1in]{geometry}
+\usepackage[top=3.3cm,bottom=2.5cm,left=2.5cm,right=2.5cm,headheight=1.4cm,headsep=0.7cm]{geometry}
 \usepackage{amsmath,amssymb}
 \setcounter{secnumdepth}{-\maxdimen} % remove section numbering
 \usepackage{iftex}
@@ -106,6 +106,18 @@
 \setlength{\emergencystretch}{3em} % prevent overfull lines
 \providecommand{\tightlist}{%
   \setlength{\itemsep}{0pt}\setlength{\parskip}{0pt}}
+\usepackage{fancyhdr}
+\usepackage{lastpage}
+\definecolor{grisur}{HTML}{808080}
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\includegraphics[height=1.2cm]{logo_ur.png}}
+\fancyhead[R]{\color{grisur}\small Escuela de Ciencias e Ingeniería\\ Análisis Estadístico de Datos}
+\renewcommand{\headrulewidth}{0pt}
+\fancyfoot[L]{\color{grisur}\footnotesize Universidad del Rosario · Bogotá D.C., Colombia}
+\fancyfoot[R]{\color{grisur}\footnotesize Página \thepage\ de \pageref{LastPage}}
+\renewcommand{\footrule}{{\color{grisur}\hrule width\headwidth height 0.4pt}\vspace{4pt}}
+\makeatletter\let\ps@plain\ps@fancy\makeatother
 \usepackage{bookmark}
 \IfFileExists{xurl.sty}{\usepackage{xurl}}{} % add URL line breaks if available
 \urlstyle{same}
