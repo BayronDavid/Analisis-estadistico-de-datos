@@ -20,6 +20,7 @@ El objetivo de este análisis es encontrar diferentes relaciones entre los país
 knitr::opts_chunk$set(
 	echo = TRUE,
 	fig.align = "center",
+	out.width = "100%",
 	message = FALSE,
 	warning = FALSE
 )
@@ -59,8 +60,8 @@ rojo_oscuro <- "#950606"
 
 data1 <- read.csv("datos_taller_02.csv", row.names=1, sep=";")
 
-# Revisar variables en la base
-names(data1)
+# Revisar tamaño de la base: 111 países y 57 variables
+dim(data1)
 ```
 
 ------------------------------------------------------------------------
@@ -99,7 +100,7 @@ names(data2)
 colMeans(data2)
 ```
 
-Es necesario resaltar que las cinco variables seleccionadas manejan la misma escala, ya que se presentan en BKWH (Billion Kilowatt Hours (Miles de millones de kilovatios-hora)). Respecto al vector de medias, la generación neta de electricidad es la que tiene la mayor media (Generación(G): 198.290 BKWH), seguido por el consumo neto de electricidad (Consumo(C): 181.816 BKWH) y la generación neta de electricidad a partir de combustibles fósiles (Fossil_G: 132.584). La generación neta de electricidad renovable tiene una media de 44.771 y la media más baja la tienen las pérdidas en la distribución de electricidad (17.004). Esta última variable representa la diferencia entre la energía eléctrica que se inyecta en la red de distribución y la energia que finalmente se entrega a los consumidores finales.
+Es necesario resaltar que las cinco variables seleccionadas manejan la misma escala, ya que se presentan en BKWH (Billion Kilowatt Hours (Miles de millones de kilovatios-hora)). Respecto al vector de medias, la generación neta de electricidad es la que tiene la mayor media (Generación(G): 198.29 BKWH), seguido por el consumo neto de electricidad (Consumo(C): 181.82 BKWH) y la generación neta de electricidad a partir de combustibles fósiles (Fossil_G: 132.58). La generación neta de electricidad renovable tiene una media de 44.77 y la media más baja la tienen las pérdidas en la distribución de electricidad (17.00). Esta última variable representa la diferencia entre la energía eléctrica que se inyecta en la red de distribución y la energia que finalmente se entrega a los consumidores finales.
 
 ```{r Matriz}
 
@@ -108,7 +109,7 @@ cov(data2)
 
 ```
 
-La variable que presenta mayor varianza es consumo neto de electricidad (Consumo(C): 383958) y la que presenta menor varianza es pérdidas en la distribución de electricidad (Perdida(P): 1990.936). Sin embargo, se debe recordar que esta se ve afectada por valores atípicos, por lo que puede estar sobrestimada.
+La variable que presenta mayor varianza es generación neta de electricidad (Generacion(G): 434095), seguida por el consumo neto de electricidad (Consumo(C): 383958), y la que presenta menor varianza es pérdidas en la distribución de electricidad (Perdida(P): 1990.936). Sin embargo, se debe recordar que esta se ve afectada por valores atípicos, por lo que puede estar sobrestimada.
 
 Respecto a las covarianza, se observa que todas las variables se relacionan positivamente, es decir, que al aumentar una, las otras también aumentarán. Para poder medir la fuerza de esa relación, se requiere realizar un análisis de correlación, el cual se realizará en el siguiente punto.
 
@@ -134,13 +135,13 @@ boxplot_estadisticos <- function(data2, variable, titulo, subtitulo, etiqueta_x)
   
   etiquetas <- data.frame(
     x = as.numeric(estadisticos),
-    y = 1.18,
+    y = c(1.20, 1.30, 1.40, 1.50, 1.60),
     etiqueta = c(
-      paste0("Mín: ", round(estadisticos[1], 1)),
+      paste0("Bigote inf.: ", round(estadisticos[1], 1)),
       paste0("Q1: ", round(estadisticos[2], 1)),
       paste0("Q2: ", round(estadisticos[3], 1)),
       paste0("Q3: ", round(estadisticos[4], 1)),
-      paste0("Máx: ", round(estadisticos[5], 1))))
+      paste0("Bigote sup.: ", round(estadisticos[5], 1))))
   
   ggplot(data2, aes(x = .data[[variable]], y = 1)) +
     
@@ -155,7 +156,7 @@ boxplot_estadisticos <- function(data2, variable, titulo, subtitulo, etiqueta_x)
         x = x,
         xend = x,
         y = 0.82,
-        yend = 1.18
+        yend = y
       ),
       color = rojo_oscuro,
       linewidth = 0.5,
@@ -168,6 +169,7 @@ boxplot_estadisticos <- function(data2, variable, titulo, subtitulo, etiqueta_x)
         y = y,
         label = etiqueta
       ),
+      hjust = -0.05,
       size = 3.5,
       fontface = "bold",
       color = "#950606") +
@@ -227,7 +229,7 @@ print(asimetria)
 En el punto anterior se identificó que la media del consumo neto de electricidad es de 181.81592 BKWH, este valor dista bastante de la mediana (Q2): 37, debido a que la media es sensible a valores atípicos y, en este caso, se observan 11 datos atipicos con valores extremos (superiores a 287, es decir, superiores a 8 veces la mediana) de las 111 observaciones que hay en la data.\
 Adicional, se calculó el coeficiente de asimetría de la variable y su resultado fue positivo(6.55). Por todo lo anterior, podemos afirmar que los datos siguen una distribución asimétrica positiva o hacia la derecha.
 
-Para finalizar, se puede observar que el 75% de los países tiene un consumo neto de electricidad menor o igual a 122.5 BKWH, con 11 países presentando valores 1.5 veces mayores al rango intercuartilico superior (287). Los mayores consumos de electricidad los presentan China (5079) y Estados Unidos (3915).
+Para finalizar, se puede observar que el 75% de los países tiene un consumo neto de electricidad menor o igual a 122.5 BKWH, con 11 países por encima de Q3 + 1.5 veces el rango intercuartilico, es decir, por encima del bigote superior (287). Los mayores consumos de electricidad los presentan China (5079) y Estados Unidos (3915).
 
 ```{r Boxplot generación, fig.width=7, fig.height=3.2, fig.align="center"}
 
@@ -252,7 +254,7 @@ asimetria2 <- moments::skewness(data2$`Generacion(G)`)
 print(asimetria2)
 ```
 
-Los datos de la electricidad neta generada son similares a los del consumo, con una media que dista bastante de la mediana (Media: 198.290 y Mediana: 43), con un coeficiente de asimetría de 6.4, se sugiere una distribución con asimetría positiva. Se identifican 9 valores atípicos, los cuales son superiores a 321.
+Los datos de la electricidad neta generada son similares a los del consumo, con una media que dista bastante de la mediana (Media: 198.29 y Mediana: 43), con un coeficiente de asimetría de 6.4, se sugiere una distribución con asimetría positiva. Se identifican 9 valores atípicos, los cuales son superiores a 321.
 
 El 75% de los países tiene una generación neta de electricidad menor o igual a 136 BKWH. Los países que más generan electricidad son China (5400) y Estados Unidos (4105), los cuales, son también los mayores consumidores.
 
@@ -263,7 +265,7 @@ boxplot_estadisticos(
   "Perdida(P)",
   "Distribución Perdida(P)",
   "Paises",
-  "Electricidad consumidad(BKWH)")
+  "Pérdidas en la distribución (BKWH)")
 ```
 
 ```{r}
@@ -306,7 +308,7 @@ asimetria4 <- moments::skewness(data2$`Fossil_G`)
 print(asimetria4)
 ```
 
-La variable generación de energía con combustible fósil sigue la misma tendencia que las anteriores variables, con una media (132.584) muy superior a la mediana (21), y coeficiente de asimetría mayor a cero, lo que comprueba una distribución asimétrica positiva.
+La variable generación de energía con combustible fósil sigue la misma tendencia que las anteriores variables, con una media (132.58) muy superior a la mediana (21), y coeficiente de asimetría mayor a cero, lo que comprueba una distribución asimétrica positiva.
 
 En esta variable, se identifican por primera vez países con 0 generación de electricidad con combustibles fósiles. El 75% o los países presentan una generación de energía con combustible fósil igual o inferior a 80 BKWH. China y Estados Unidos repiten como los países que encabezan la lista, con 3985 BKWH y 2751 BKWH, respectivamente. Si se compara la generación de electricidad con esta variable referente puntualmente a combustibles fósiles, se observa que para china el 74% de la generación es con estos combustibles y en Estados Unidos corresponde al 67%.
 
@@ -334,7 +336,7 @@ asimetria5 <- moments::skewness(data2$`Renewable_G`)
 print(asimetria5)
 ```
 
-Finalmente, la generación de energía renovable también presenta valores mínimos de 0, una media (44.771) superior a la mediana (8.3), con distribución asimétrica positiva por coefciente mayor a 0, y con la segunda menor varianza (20864.464).
+Finalmente, la generación de energía renovable también presenta valores mínimos de 0, una media (44.77) superior a la mediana (8.3), con distribución asimétrica positiva por coefciente mayor a 0, y con la segunda menor varianza (20864.464).
 
 Es necesario mencionar que, si bien en esta variable se mantienen en primer lugar China (1287) y Estados Unidos (563), dentro del top 4 (todos valores atípicos) ingresan Brazil (429) y Canada (412) y salen Japón y Rusia que se mantuvieron en 4to y 5to puesto en todas las otras variables, excepto en pérdidas en la distribución de electricidad, en el que Rusia está de 4to y Japón de 8vo. El 75% de los países presenta una generación de electricidad renovable menor o igual a 26.5, valor 3 veces menor al mismo porcentaje de generación con combustibles fósiles.
 
@@ -347,7 +349,7 @@ gather(data2) %>%
   facet_wrap(~key, scales = "free")
 ```
 
-Las gráficas de densidad confirman que las variables siguen una ditribución simétrica positiva, en la que la mayoría de países presenta valores muy bajos y unos pocos países valores altos. También se identifican algunos picos en los datos, empezando todas las variables con valores altos, luego aumentando en mayor o menor medida, y continuando con una caída pronunciada con presencia de algunos picos.
+Las gráficas de densidad confirman que las variables siguen una ditribución asimétrica positiva, en la que la mayoría de países presenta valores muy bajos y unos pocos países valores altos. También se identifican algunos picos en los datos, empezando todas las variables con valores altos, luego aumentando en mayor o menor medida, y continuando con una caída pronunciada con presencia de algunos picos.
 
 **Análisis descriptivo multivariado**
 
@@ -369,15 +371,9 @@ La menor correlación se observa entre las Pérdidas de electricidad con la Gene
 
 La variables de Pérdidas de distribución de electricidad y generación de electricidad con fuentes Fosiles presentan una correlación alta (0.91), sin embargo, en la gráfica de distribución no parece que presentarán una relación tan alta, esto se debe probablemente a que algunos puntos no sigan una correlación lineal aparente.
 
-```{r}
-#complemento usando ggpairs, nos damos cuenta nos brinda la misma información ya analizada
-GGally::ggpairs(data2)
-
-```
-
 \noindent\textbf{Pregunta 3. El conjunto de datos incluye 57 variables, analizarlas de forma individual podría representar un gasto computacional y de tiempo bastante agotador; por lo cuál una técnica de reducción de dimensionalidad sería ideal. Ejecute un ACP sobre estos datos, compare la contribución de las variables sobre el primer plano factorial de un ACP normado (escalado) y uno sin normalizar (sin escalar).}
 
-Teniendo en cuenta que el flujo completo para realizar un ACP arranca con la exploración de las variables y conocimiento de la data, luego observando las correlaciones entre las variables y el verificar no tener variables cuantitativas(57 variables numericas, correcto), procedemos a detectar outliers con la distancia de Mahalanobis antes de ejecutar ACP, ya que como vimos en el análisis de los puntos anteriores, hay paises con observaciones muy superiores. Se realiza este análisis debido a que un outlier aumenta artificialmente la varianza en su dirección, pudiendo sesgar los ejes principales de la metodología ACP.\
+Teniendo en cuenta que el flujo completo para realizar un ACP arranca con la exploración de las variables y conocimiento de la data, luego observando las correlaciones entre las variables y el verificar no tener variables cualitativas(57 variables numericas, correcto), procedemos a detectar outliers con la distancia de Mahalanobis antes de ejecutar ACP, ya que como vimos en el análisis de los puntos anteriores, hay paises con observaciones muy superiores. Se realiza este análisis debido a que un outlier aumenta artificialmente la varianza en su dirección, pudiendo sesgar los ejes principales de la metodología ACP.\
 Exploración de las 57 variables:
 
 ```{r}
@@ -386,8 +382,8 @@ dim(data1)
 # Tipos de variables
 table(sapply(data1, class))
 
-# Verificamos que no hay valores faltantes por columna
-sort(colSums(is.na(data1)), decreasing = TRUE)
+# Verificamos que no hay valores faltantes
+sum(is.na(data1))
 
 # Variables con varianza cero
 nombres <- names(data1)[
@@ -433,6 +429,17 @@ data_sin_dup <- subset(
 
 # Verificar las dimensiones
 dim(data_sin_dup)
+```
+
+Cálculo de la distancia de Mahalanobis sin la columna duplicada:
+
+```{r}
+# Distancia de Mahalanobis de cada país al vector de medias
+d_maha <- mahalanobis(data_sin_dup, colMeans(data_sin_dup), cov(data_sin_dup))
+
+# Países por encima del percentil 97,5 de una chi cuadrado con 56 grados de libertad
+corte <- qchisq(0.975, df = ncol(data_sin_dup))
+sum(d_maha > corte)
 ```
 
 ```{r}
@@ -511,47 +518,30 @@ La comparación evidencia que el ACP sin escalar concentra una mayor proporción
 
 Ahora se busca como contribuyen las variables sobre el primer plano factorial.
 
-```{r}
-# Contribuciones porcentuales por variable y componente
+Usamos fviz_contrib con las componentes 1 y 2, que pondera la contribución a cada componente por la varianza que explica esa componente. La línea punteada roja marca la contribución que tendría cada variable si todas aportaran lo mismo.
 
-contrib_sin <- acp_sin_escalar$rotation[, 1:2]^2 * 100
-contrib_norm <- acp_escalado$rotation[, 1:2]^2 * 100
+```{r contribuciones, fig.width=8, fig.height=4.5}
+# Contribución de las variables al primer plano factorial (componentes 1 y 2)
+fviz_contrib(acp_sin_escalar, choice = "var", axes = 1:2, top = 10,
+             fill = rojo, color = rojo_oscuro) +
+  coord_flip() +
+  labs(x = NULL, title = "Contribución al primer plano: ACP sin escalar")
 
-# Contribución conjunta al primer plano factorial
-# Promedio de las contribuciones a PC1 y PC2
-plano_sin <- rowMeans(contrib_sin)
-plano_norm <- rowMeans(contrib_norm)
-
-# Tabla comparativa
-comparacion <- data.frame(
-  Variable = rownames(acp_sin_escalar$rotation),
-  Sin_escalar_PC1 = contrib_sin[, 1],
-  Sin_escalar_PC2 = contrib_sin[, 2],
-  Sin_escalar_plano = plano_sin,
-  Normado_PC1 = contrib_norm[, 1],
-  Normado_PC2 = contrib_norm[, 2],
-  Normado_plano = plano_norm
-)
-
-# Diez variables que más contribuyen al plano en cada ACP
-head(comparacion[
-  order(comparacion$Sin_escalar_plano, decreasing = TRUE),
-], 10)
-
-head(comparacion[
-  order(comparacion$Normado_plano, decreasing = TRUE),
-], 10)
+fviz_contrib(acp_escalado, choice = "var", axes = 1:2, top = 10,
+             fill = rojo, color = rojo_oscuro) +
+  coord_flip() +
+  labs(x = NULL, title = "Contribución al primer plano: ACP normado")
 ```
 
-Al observar los resultados del primer plano factorial sin escalar, observamos variables importantes de producción, consumo, comercio de petróleo y generación de electricidad que tienen una influencia significativa al conservar su escala. Mientras que en el ACP escalado toman mas relevancia indicadores de capacidad instalada, producción petrolera y generación de energía.
+En el ACP sin escalar casi todas las variables que más contribuyen son de producción, consumo y comercio de petróleo medidas en miles de barriles diarios, y la generación de electricidad apenas aparece en el décimo lugar. Son las variables con valores numéricos más grandes, así que dominan el plano por su escala. En el ACP normado, en cambio, además del consumo de petróleo y la refinación toman relevancia las emisiones de CO2, el consumo y la generación de electricidad y la capacidad instalada eléctrica (total, fósil y renovable no hidráulica), es decir, indicadores del tamaño del sistema energético de cada país.
 
 \noindent\textbf{Pregunta 4. Una vez calculado el PCA normado, ¿qué número de componentes principales deberíamos seleccionar? ¿Bajo que criterio seleccionó este número de componentes?}
 
-Usando el gráfico de sedimentación o screeplot y el criterio "del codo" en el PCA normado podemos observar que el mejor k es de 2, estas 2 componentes logran resumir las 56 variables sin pérdida valiosa de información, vemos adicionalemente que un k de 3 tiene un menor aporte porque la curva comienza a estabilizarse ahí.
+Usando el gráfico de sedimentación o screeplot y el criterio "del codo" en el PCA normado podemos observar que el mejor k es de 2, estas 2 componentes logran resumir las 56 variables con el 69,2 % de la varianza, aunque queda por fuera cerca del 31 %. Vemos adicionalemente que un k de 3 tiene un menor aporte porque la curva comienza a estabilizarse ahí. Si se quisiera retener al menos el 80 % de la varianza harían falta 4 componentes (81,1 %).
 
 ```{r}
-round(acp_escalado$rotation, 3)
-round(acp_escalado$x, 2)
+# Varianza explicada y acumulada de las primeras 8 componentes
+round(summary(acp_escalado)$importance[, 1:8], 3)
 
 screeplot(acp_escalado, col = rojo, pch = 16,
           type = "lines", cex = 2, lwd = 2, main = "")
@@ -562,24 +552,47 @@ screeplot(acp_escalado, col = rojo, pch = 16,
 
 Se desarrolla el círculo de correlaciones con factoextra
 
-```{r}
-install.packages("factoextra")
-library(factoextra)
-
+```{r fig.width=8, fig.height=7}
 fviz_pca_var(
   acp_escalado,
   axes = c(1, 2),
   col.var = "contrib",
-  label="none",
+  select.var = list(contrib = 30),
+  labelsize = 2.5,
   repel = TRUE,
   title = "Círculo de correlaciones - ACP normado - Variables"
 )
 ```
 
 1.  En cuanto a la longitud de las flechas podemos confirmar que la mayoría al ser largas y cercanas a la circunferencia tienen una mayor explicación y están mejor o más representadas por PC1 Y PC2
-2.  Como los angulos entre las variables es pequeño, menor a 90°, se concluye que se tiene una alta correlación positiva entre la gran mayoría de variables, solo una tiene una correlacion negativa con las demás porque su angulo es grande,mayor a 90°.
+2.  Como los angulos entre las variables es pequeño, menor a 90°, se concluye que se tiene una alta correlación positiva entre la gran mayoría de variables, solo una tiene una correlacion negativa con las demás porque su angulo es grande,mayor a 90°. Esa variable es la generación neta de las hidroeléctricas de bombeo (correlación de -0.90 con la primera componente, ver el cálculo abajo). Tiene sentido porque estas centrales consumen más electricidad bombeando agua de la que luego generan, y su generación neta es negativa justo en los países grandes.
 3.  La gran mayoría de variables presentan un color azul claro, lo que muestra una mayor contribución en la construcción de las componentes principales.
 4.  Debido a que la mayoría de variables apuntan hacia la derecha hay una asociación positiva de estas con la primera componente principal.
+
+```{r}
+# Variables con menor correlación con la primera componente
+cor_cp1 <- cor(data_sin_dup, acp_escalado$x[, 1])
+head(sort(cor_cp1[, 1]), 3)
+```
+
+Ahora el mismo gráfico sobre el plano de las componentes 2 y 3. Para no saturarlo mostramos solo las 30 variables que más contribuyen y con nombres más pequeños:
+
+```{r fig.width=8, fig.height=7}
+fviz_pca_var(
+  acp_escalado,
+  axes = c(2, 3),
+  col.var = "contrib",
+  select.var = list(contrib = 30),
+  labelsize = 2.5,
+  repel = TRUE,
+  title = "Círculo de correlaciones - ACP normado - Componentes 2 y 3"
+)
+```
+
+1.  Las flechas son más cortas que en el plano (1,2): estas dos componentes explican poco (7,8 % y 7,1 %), así que las variables quedan peor representadas aquí y las conclusiones son más débiles.
+2.  La segunda componente opone el petróleo a las renovables. Hacia la derecha van la producción de líquidos de gas natural, la producción, las reservas y las exportaciones de crudo; hacia la izquierda, la generación y la capacidad hidroeléctrica, la capacidad renovable, la solar y la eólica.
+3.  La tercera componente separa a los exportadores de petróleo de los países que importan electricidad. Abajo quedan las exportaciones y reservas de crudo y el fuel oil residual, que son las variables que más contribuyen (en azul claro); arriba, la geotermia, las importaciones de electricidad, la nuclear y la refinación de gasolina.
+4.  Esto coincide con el mapa de países del punto 6: los exportadores de crudo como Arabia Saudita, Rusia, Irán y Venezuela quedan abajo en la tercera componente, y países como Italia, Francia, Filipinas y Nueva Zelanda quedan arriba.
 
 \noindent\textbf{Pregunta 6. Ahora examine con detenimiento el mapa de individuos sobre los planos factoriales que conforman las componentes (1,2) y (2,3). ¿Qué conclusiones puede sacar según la cercanía de algunas UE?}
 
@@ -602,12 +615,6 @@ Para ver unicamente los nombres de los mas extremos, como hay muchos paises muy 
 
 ```{r}
 
-```
-
-:
-
-```{r}
-
 grafico_12 <- fviz_pca_ind(
   acp_escalado,
   axes = c(1, 2),
@@ -623,6 +630,7 @@ print(grafico_12)
 
 1.  Los países cercanos presentan perfiles energéticos similares en las dimensiones CP1 Y CP2, mientras que los alejados como China y United States, tienen perfiles diferentes en esas dimensiones
 2.  Los países que se encuentran cerca al origen presentan valores próximos al perfil promedio en las dimensiones representadas
+3.  Por la segunda componente se separan los productores y exportadores de crudo, arriba (Arabia Saudita, Rusia, Emiratos Árabes Unidos, Venezuela, Iraq, Irán), de los países que importan petróleo y generan más con hidroeléctricas y solar, abajo (China, Japón, India, Alemania, Francia, Italia, España). India y Japón quedan muy cerca entre sí: son grandes consumidores sin mucho petróleo propio.
 
 Plano factorial (2, 3)
 
@@ -651,6 +659,7 @@ fviz_pca_ind(
 
 1.  Este gráfico muestra PC2 Y PC3 dejando por fuera a PC1, y lo que nos permite afirmar es que hay países con caracteristicas relacionadas en la segunda y tercera componente que no muestra necesariamente la primera.
 2.  se observan las relaciones entre los paises y se identifican similitudes en las variables por su cercanía en el plano factorial (2,3)
+3.  Abajo en la tercera componente quedan los exportadores de crudo (Arabia Saudita, Rusia, Irán, Venezuela, Canadá) y también China; arriba quedan países que importan electricidad o usan geotermia, como Italia, Filipinas, Francia, Alemania y Nueva Zelanda. Estados Unidos queda aparte, alto en la segunda y en la tercera componente.
 
 \noindent\textbf{Pregunta 7. Como hemos observado en clase, el ACP es una técnica bastante sensible a datos atípicos, ejecute nuevamente el ACP retirando del conjunto de datos a Estados Unidos, China, Arabia Saudi y Rusia. ¿En que cambia el ACP al excluir estos países?. ¿Se perciben clusters de países con mayor claridad?. Calcule únicamente el ACP normado.}
 
@@ -684,8 +693,8 @@ acp_sin_extremos <- prcomp(
   scale. = TRUE
 )
 
-# Resumen de la varianza explicada
-summary(acp_sin_extremos)
+# Resumen de la varianza explicada (primeras 5 componentes)
+summary(acp_sin_extremos)$importance[, 1:5]
 ```
 
 Y comparamos la varianza:
@@ -730,7 +739,7 @@ summary(acp_sin_extremos)$importance[, 1:2]
 
 ```
 
-Observamos que al eliminar los 4 países el ACP muestra una disminución en la proporción de varianza que explica el modelo, de 69,17% a 58,56%, concentrado principalmente en la disminución de la primera componente.
+Observamos que al eliminar los 4 países el ACP muestra una disminución en la proporción de varianza que explica el modelo, de 69,18% a 58,56%, concentrado principalmente en la disminución de la primera componente.
 
 Para poder revisar si hay clusteres de países excluyendo los 4 países desarrollamos:
 
@@ -759,7 +768,9 @@ print(grafico_original)
 print(grafico_sin_extremos)
 ```
 
-Como mencionamos, PC1 pierde importancia relativa mientras que PC2 pasa a explicar del 7,85% al 10,40% de la variabilidad total. Por ello sería prudente incluir mas componentes para representar de manera mayor la información de las variables originales.
+Como mencionamos, PC1 pierde importancia relativa mientras que PC2 pasa a explicar del 7,84% al 10,40% de la variabilidad total. Por ello sería prudente incluir mas componentes para representar de manera mayor la información de las variables originales.
+
+En cuanto a los clusters, sí se perciben con mayor claridad. Con los cuatro países, Estados Unidos y China estiraban tanto los ejes que casi todos los demás quedaban apretados en una esquina. Sin ellos la nube se abre: India y Japón se van a la derecha, Brasil y Canadá abajo a la derecha, varios países europeos con Corea del Sur arriba y los exportadores de petróleo hacia abajo. Estos grupos se revisan en el punto 8.
 
 ------------------------------------------------------------------------
 
@@ -841,18 +852,27 @@ La varianza explicada por los clusters es:
 | 2 | 36 % |
 | 3 | 46 % |
 | 4 | 54 % |
-| 5 | 61 % |
-| 6 | 66 % |
+| 5 | 59 % |
+| 6 | 65 % |
 
-El salto más grande ocurre al pasar de 1 a 2 grupos. Después las ganancias se reducen a cerca de 10, 8 y 7 puntos porcentuales, y a partir de k = 6 cada grupo adicional aporta menos de 5 puntos. El codo está entre k = 3 y k = 5.
+El salto más grande ocurre al pasar de 1 a 2 grupos. Después las ganancias se reducen a cerca de 10; 7,5 y 5,4 puntos porcentuales, y a partir de k = 6 cada grupo adicional aporta menos de 5 puntos. El codo está entre k = 3 y k = 5.
 
 Elegimos **k = 4** por tres razones:
 
 * Coincide con lo que observamos en el primer plano factorial (pregunta 8).
 * Es la solución más parsimoniosa antes de que la curva se aplane.
-* Es **estable**: con distintas semillas, k-means siempre encuentra los mismos 4 grupos.
+* Es **estable**: con dos semillas distintas (123 y 456), k-means encuentra los mismos 4 grupos, como se ve en la tabla.
 
-Con k = 5 aparece un grupo intermedio de exportadores de petróleo y economías medianas. Sin embargo, sus integrantes cambian según la semilla (entre 10 y 15 países), lo que indica que esa separación no es robusta.
+```{r p9_semillas}
+# Mismo k-means con dos semillas distintas
+set.seed(123)
+km4_a <- kmeans(datos_esc, centers = 4, nstart = 25)
+set.seed(456)
+km4_b <- kmeans(datos_esc, centers = 4, nstart = 25)
+
+# Si los grupos son iguales, en cada fila hay un solo valor distinto de cero
+table(Semilla_123 = km4_a$cluster, Semilla_456 = km4_b$cluster)
+```
 
 
 \noindent\textbf{Pregunta 10. Determine mediante k-means y aglomeración jerárquica (usando enlace promedio) la clasificación en grupos para los países de estudio. Considere todas las variables de estudio ¿son diferentes los resultados de los dos análisis cluster?}
@@ -863,7 +883,10 @@ km4 <- kmeans(datos_esc, centers = 4, nstart = 25)
 
 # Tamaño e integrantes de cada grupo
 km4$size
-split(rownames(datos_esc), km4$cluster)
+
+# Integrantes de los grupos pequeños (el grupo grande tiene 87 países)
+grupos_km <- split(rownames(datos_esc), km4$cluster)
+grupos_km[lengths(grupos_km) < 50]
 
 fviz_cluster(km4, data = datos_esc, repel = TRUE, labelsize = 7,
              ellipse.type = "convex", main = "k-means (k = 4)") +
@@ -879,7 +902,10 @@ rect.hclust(jer_prom, k = 4, border = rojo)
 
 grupos_jer <- cutree(jer_prom, k = 4)
 table(grupos_jer)
-split(rownames(datos_esc), grupos_jer)
+
+# Integrantes de los grupos pequeños (el grupo grande tiene 101 países)
+grupos_j <- split(rownames(datos_esc), grupos_jer)
+grupos_j[lengths(grupos_j) < 50]
 ```
 
 ```{r p10_comparacion}
@@ -892,11 +918,11 @@ Los números de los grupos son etiquetas arbitrarias, así que la comparación s
 | Grupo | k-means (k = 4) | Jerárquico, enlace promedio (k = 4) |
 |---|---|---|
 | Gigantes consumidores | India, Japón | India, Japón |
-| Grandes productores con alta generación hidroeléctrica | Brasil, Canadá | Brasil, Canadá |
-| Potencias industriales importadoras | Francia, Alemania, Italia, Corea del Sur, España, Reino Unido | Solo Francia y Corea del Sur |
-| Resto de países | 97 países | 101 países (incluye Alemania, Italia, España y Reino Unido) |
+| Economías grandes (industriales e hidroeléctricas) | Brasil, Canadá, Francia, Alemania, Italia, Corea del Sur, España, Reino Unido | Dos grupos aparte: Brasil y Canadá; Francia y Corea del Sur |
+| Petroleros y refinadores | Indonesia, Irán, Iraq, Kuwait, México, Países Bajos, Singapur, Tailandia, Emiratos Árabes Unidos, Venezuela | No forman grupo propio |
+| Resto de países | 87 países | 101 países (incluye a los petroleros y a Alemania, Italia, España y Reino Unido) |
 
-Los resultados son **parecidos pero no iguales**. Ambos métodos aíslan a India y Japón y a Brasil y Canadá, y dejan a la gran mayoría de países en un grupo común. La diferencia está en las potencias europeas. k-means las reúne en un grupo propio de 6 países. El enlace promedio solo separa a Francia y Corea del Sur, que son los dos países con mayor generación nuclear, y deja a Alemania, Italia, España y Reino Unido dentro del grupo grande.
+Los resultados son **parecidos pero no iguales**. Ambos métodos aíslan a India y Japón y dejan a la gran mayoría de países en un grupo común. La diferencia está en el resto. k-means forma un grupo de 8 economías grandes (Brasil y Canadá con los países europeos y Corea del Sur) y otro de 10 países petroleros o con mucha refinación. El enlace promedio solo separa parejas, Brasil con Canadá y Francia con Corea del Sur, y deja a los petroleros y a Alemania, Italia, España y Reino Unido dentro del grupo grande. La tabla cruzada lo confirma: el grupo de 8 de k-means queda repartido en tres grupos del jerárquico.
 
 Esto se explica por cómo funciona cada método:
 
@@ -905,7 +931,61 @@ Esto se explica por cómo funciona cada método:
 
 Para caracterizar a los países, k-means da una partición más interpretable. El dendrograma, en cambio, muestra con claridad cuáles son los países más atípicos.
 
-> Para el punto 11, los grupos de k-means quedan en `km4$cluster`. Se pueden unir a la base con `data_sin_extremos$grupo <- factor(km4$cluster)`.
-
 
 \noindent\textbf{Pregunta 11. Grafique mediante boxplot la distribución de las 5 variables seleccionadas en el punto 2 diferenciando por los grupos encontrados mediante k-means (es decir, obtenga un boxplot por variable y por grupo: si por ejemplo k-means indica un total de 3 grupos, realice 3 boxplots, uno por grupo, para cada una de las 5 variables). ¿Observa diferencias importantes entre las distribuciones por grupos de la misma variable?}
+
+Unimos a cada país el grupo que le asignó k-means en el punto 10 y le ponemos nombre a cada grupo según los países que lo forman. Las 5 variables del punto 2 están en `data2`, que tiene los 111 países, así que tomamos solo los 107 que entraron al agrupamiento, en el mismo orden.
+
+```{r p11_grupos}
+# Grupo de k-means de cada país
+grupo <- km4$cluster
+
+# Nombre de cada grupo según un país que pertenece a él
+nombre_grupo <- character(4)
+nombre_grupo[grupo["India"]]    <- "India y Japón"
+nombre_grupo[grupo["Brazil"]]   <- "Grandes economías"
+nombre_grupo[grupo["Iraq"]]     <- "Petroleros y refinadores"
+nombre_grupo[grupo["Colombia"]] <- "Resto de países"
+
+# Las 5 variables del punto 2 para los 107 países del agrupamiento
+datos_p11 <- data2[names(grupo), ]
+datos_p11$Grupo <- factor(nombre_grupo[grupo],
+                          levels = c("India y Japón", "Grandes economías",
+                                     "Petroleros y refinadores", "Resto de países"))
+
+table(datos_p11$Grupo)
+```
+
+```{r p11_boxplots, fig.width=7, fig.height=9}
+datos_p11 %>%
+  pivot_longer(-Grupo, names_to = "Variable", values_to = "Valor") %>%
+  ggplot(aes(x = Grupo, y = Valor)) +
+  geom_boxplot(fill = rojo, color = rojo_oscuro, alpha = 0.8) +
+  facet_wrap(~ Variable, scales = "free_y", ncol = 2) +
+  labs(x = NULL, y = "BKWH",
+       title = "Variables del punto 2 por grupo de k-means") +
+  theme_minimal() +
+  theme(plot.title = element_text(face = "bold", hjust = 0.5),
+        axis.text.x = element_text(angle = 30, hjust = 1))
+```
+
+```{r p11_medianas}
+# Mediana de cada variable por grupo
+datos_p11 %>%
+  group_by(Grupo) %>%
+  summarise(across(everything(), median)) %>%
+  as.data.frame()
+
+# Porcentaje de la generación que es renovable (mediana por grupo)
+datos_p11 %>%
+  mutate(Pct_renovable = 100 * Renewable_G / `Generacion(G)`) %>%
+  group_by(Grupo) %>%
+  summarise(Pct_renovable = round(median(Pct_renovable), 1)) %>%
+  as.data.frame()
+```
+
+Sí hay diferencias importantes entre grupos, sobre todo de nivel. En consumo, generación, pérdidas y generación fósil el orden se repite: India y Japón muy por encima (consumo mediano de 1.006,5 BKWH), luego las grandes economías (368), los petroleros y refinadores (106) y al final el resto de países (24). Era lo esperable, porque la primera componente, que pesa mucho en el agrupamiento, mide justamente el tamaño energético de cada país.
+
+La generación renovable cambia un poco ese orden. Las grandes economías tienen una mediana de 102,5 BKWH, pero con mucha dispersión (de 10 a 429), porque ahí están Brasil y Canadá con su generación hidroeléctrica. Los petroleros y refinadores, en cambio, generan muy poco con renovables (mediana de 13,5): la mitad de ellos saca menos del 7 % de su electricidad de fuentes renovables, frente al 35 % en las grandes economías.
+
+Hay que leer con cuidado dos cosas. El grupo de India y Japón tiene solo dos países, así que su caja no muestra una distribución sino dos valores. Y el resto de países, que son 87, queda aplastado cerca de cero por la escala; dentro de ese grupo hay mucha variación y varios atípicos, y en consumo y generación sus valores más altos se cruzan con los del grupo de petroleros (el máximo de consumo es 247 en uno y 248 en el otro). Es decir, estas 5 variables separan bien a los grupos grandes, pero no alcanzan a distinguir a los petroleros del resto: lo que los separa son las variables de petróleo, que no están entre estas cinco.
