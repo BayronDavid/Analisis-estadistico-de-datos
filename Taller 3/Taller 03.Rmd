@@ -149,7 +149,7 @@ dim(datos)
 
 En el conjunto de datos `turbinas_prod.csv` cuenta con la producción mensual promedio de 5 turbinas eólicas ubicadas en la Guajira. Esta información se tiene por un total de 12 meses para cada turbina y la medición esta dada en MWh. Se busca determinar si existen diferencias significativas entre la producción promedio de energía de las turbinas.
 
-```{r lectura}
+```{r lectura2}
 
 datos2 <- read.csv("turbinas_prod.csv", row.names=1, sep=",")
 ```
