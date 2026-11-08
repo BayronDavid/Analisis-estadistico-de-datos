@@ -1,0 +1,327 @@
+---
+title: "Análisis Estadístico de Datos - Taller 03"
+author: "Adriana Porras, Alejandra Niño, Bayron Morales, Juliana Cárdenas"
+output:
+  pdf_document:
+    latex_engine: xelatex
+    keep_tex: true
+geometry:
+  - top=3.3cm
+  - bottom=2.5cm
+  - left=2.5cm
+  - right=2.5cm
+  - headheight=1.4cm
+  - headsep=0.7cm
+header-includes:
+  - '\usepackage{fancyhdr}'
+  - '\usepackage{lastpage}'
+  - '\definecolor{grisur}{HTML}{808080}'
+  - '\pagestyle{fancy}'
+  - '\fancyhf{}'
+  - '\fancyhead[L]{\includegraphics[height=1.2cm]{logo_ur.png}}'
+  - '\fancyhead[R]{\color{grisur}\small Escuela de Ciencias e Ingeniería\\ Análisis Estadístico de Datos}'
+  - '\renewcommand{\headrulewidth}{0pt}'
+  - '\fancyfoot[L]{\color{grisur}\footnotesize Universidad del Rosario · Bogotá D.C., Colombia}'
+  - '\fancyfoot[R]{\color{grisur}\footnotesize Página \thepage\ de \pageref{LastPage}}'
+  - '\renewcommand{\footrule}{{\color{grisur}\hrule width\headwidth height 0.4pt}\vspace{4pt}}'
+  - '\makeatletter\let\ps@plain\ps@fancy\makeatother'
+---
+
+```{r setup, include=FALSE}
+# Mostrar el código de cada bloque en el documento final
+knitr::opts_chunk$set(
+	echo = TRUE,
+	fig.align = "center",
+	out.width = "100%",
+	message = FALSE,
+	warning = FALSE
+)
+Sys.setlocale("LC_CTYPE", "Spanish_Colombia.utf8")
+```
+
+```{r librerias, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+# Instalación de librerias en caso de no tenerlas
+# install.packages("tidyverse")
+# install.packages("plotly")
+# install.packages("MASS")
+# install.packages("psych")
+# install.packages("factoextra")
+# install.packages("GGally")
+# install.packages("dplyr")
+#install.packages("downcute")
+
+# Ejecución de librerias
+library(tidyverse)
+# library(downcute)
+#library(plotly)
+#library(MASS)
+#library(psych)
+#library(tidyverse)
+#library(factoextra)
+library(GGally)
+#library(dplyr)
+```
+
+```{r colores}
+
+# Colores usados en todos los gráficos del taller
+rojo        <- "#DA0921"
+rojo_oscuro <- "#950606"
+```
+
+------------------------------------------------------------------------
+
+## Modelo de Regresión Lineal Múltiple
+
+## EIA data
+
+U.S. Energy Information Administration ([EIA](https://www.eia.gov/)) es una organización que se encarga de recopilar, analizar y difundir información energética de manera independiente e imparcial para promover la formulación de políticas sólidas, mercados eficientes y la comprensión pública de la energía y su interacción con la economía y el medio ambiente. Los datos que trabajaremos a continuación corresponden a la extracción de diferentes variables relacionadas con energías renovables y combustibles fósiles, las UE son 111 países de todos los continentes del mundo, seleccionados para fines académicos por ser aquellos países que presentan mayor cantidad de información de análisis. Adicionalmente, se han incluido variables relacionadas al Producto interno Bruto de cada país para el año 2014 (GDP_USD y GDP_per_capita), así como la población de cada país a final de ese año.
+
+El objetivo de este análisis es encontrar estructuras de correlación de tipo lineal entre la generación de combustibles fósiles y de energías renovables con el PIB de cada país, entendiendo que nuestras variables explicativas solamente son una parte del total del PIB. Trabaje los ejercicios 1 a 5 con los datos manipulados a continuación:
+
+```{r lectura}
+
+datos = read.csv("datos_taller_03.csv", sep=";") %>% as_tibble() %>% 
+  dplyr::filter(!Country %in% c('UnitedStates','China','SaudiArabia','Russia')) %>% 
+  dplyr::select(c("GDP_USD","Population","Solar_electricity_net_generation_BKWH","Wind_electricity_net_generation_BKWH")) %>%
+  dplyr::filter(Solar_electricity_net_generation_BKWH >0 & Wind_electricity_net_generation_BKWH>0) %>% 
+  dplyr::mutate(GDP_USD_PER_CAPITA = GDP_USD/Population) %>% 
+  dplyr::select(-c('GDP_USD','Population')) 
+
+# Revisar tamaño de la base: 28 países y 3 variables
+dim(datos)
+```
+
+\noindent\textbf{Pregunta 1. Mediante la función `GGally::ggpairs`, grafique los diagramas de dispersión bivariados para el conjunto de datos. ¿Qué tipo de relación observa entre cada par de variables? ¿Visualmente considera que las variables Solar_electricity_net_generation_BKWH y Wind_electricity_net_generation_BKWH presentan varianza constante, (también llamada homoscedasticidad) a través de los valores de la variable GDP_USD_PER_CAPITA?}
+
+```{r Rel_Variables}
+
+...
+
+```
+
+....
+
+\noindent\textbf{Pregunta 2. Para explicar el PIB per capita (GDP_USD_PER_CAPITA) a través de las variables en la tabla `datos` de manera simultánea, ajuste un modelo de regresión con todas las variables explicativas e interprete la salida del mismo con la ayuda de la función `summary()`. ¿Cómo interpretaría los coeficientes estimados del modelo? ¿Cuál variable parece ser más importante para explicar el GDP_USD_PER_CAPITA?}
+
+```{r}
+
+...
+```
+
+...
+
+\noindent\textbf{Pregunta 3. Según la salida de `summary()` anterior, ¿cuál es el valor del estadístico F del modelo?. Dado su valor y el valor p asociado del modelo, ¿son estas variables en conjunto relevantes desde el punto de vista estadístico para explicar el PIB?.}
+
+```{r}
+
+
+```
+
+...
+
+\noindent\\textbf{Pregunta 4. A través de los gráficos asociados al modelo obtenidos con la función `plot()`, mencione respecto a los supuestos de:
+
+-   Normalidad de los errores del modelo.
+
+-   Varianza constante.
+
+¿Parece el modelo seguir los dos supuestos mencionados?}
+
+```{r}
+
+
+```
+
+\noindent\textbf{Pregunta 5. Estime ahora un modelo de regresión lineal múltiple, pero esta vez realice una transformación de logaritmo sobre la variable de respuesta `log(GDP_USD_PER_CAPITA)`. ¿Qué pasa ahora con el modelo cuando realizamos esta transformación? ¿Cuál modelo presenta residuales más cercanos a la distribución normal?}
+
+```{r}
+
+
+```
+
+...
+
+------------------------------------------------------------------------
+
+## Anova
+
+En el conjunto de datos `turbinas_prod.csv` cuenta con la producción mensual promedio de 5 turbinas eólicas ubicadas en la Guajira. Esta información se tiene por un total de 12 meses para cada turbina y la medición esta dada en MWh. Se busca determinar si existen diferencias significativas entre la producción promedio de energía de las turbinas.
+
+```{r lectura}
+
+datos2 <- read.csv("turbinas_prod.csv", row.names=1, sep=",")
+```
+
+\noindent\textbf{Pregunta 6. Realice el boxplot de producción para las diferentes turbinas y determine visualmente si observa diferencias en la producción de energía de las 5 turbinas. ¿Parece haber varianza constante en las observaciones de las turbinas?}
+
+```{r Boxplot}
+
+# Crear una función para crear boxplot
+
+boxplot_estadisticos <- function(data2, variable, titulo, subtitulo, etiqueta_x) {
+  
+  valores <- data2[[variable]]
+  
+  estadisticos <- boxplot.stats(valores)$stats
+  
+  etiquetas <- data.frame(
+    x = as.numeric(estadisticos),
+    y = c(1.20, 1.30, 1.40, 1.50, 1.60),
+    etiqueta = c(
+      paste0("Bigote inf.: ", round(estadisticos[1], 1)),
+      paste0("Q1: ", round(estadisticos[2], 1)),
+      paste0("Q2: ", round(estadisticos[3], 1)),
+      paste0("Q3: ", round(estadisticos[4], 1)),
+      paste0("Bigote sup.: ", round(estadisticos[5], 1))))
+  
+  ggplot(data2, aes(x = .data[[variable]], y = 1)) +
+    
+    geom_boxplot(
+      fill = rojo,
+      color = rojo_oscuro,
+      width = 0.35) +
+    
+    geom_segment(
+      data = etiquetas,
+      aes(
+        x = x,
+        xend = x,
+        y = 0.82,
+        yend = y
+      ),
+      color = rojo_oscuro,
+      linewidth = 0.5,
+      linetype = "dashed") +
+    
+    geom_text(
+      data = etiquetas,
+      aes(
+        x = x,
+        y = y,
+        label = etiqueta
+      ),
+      hjust = -0.05,
+      size = 3.5,
+      fontface = "bold",
+      color = "#950606") +
+    
+    labs(
+      title = titulo,
+      subtitle = subtitulo,
+      x = etiqueta_x,
+      y = NULL) +
+    
+    theme_minimal() +
+    
+    theme(
+      plot.title = element_text(
+        face = "bold",
+        size = 14,
+        hjust = 0.5),
+      plot.subtitle = element_text(
+        size = 11,
+        hjust = 0.5),
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank(),
+      axis.title.y = element_blank(),
+      axis.title.x = element_text(face = "bold"),
+      panel.grid.minor = element_blank(),
+      panel.grid.major.y = element_blank())}
+```
+
+```{r}
+
+boxplot_estadisticos(
+ datos2,
+  "T1",
+  "Distribución Turbina 1",
+  "Producción mensual",
+  "Megavatio-hora(MWh)")
+```
+
+...
+
+```{r}
+
+boxplot_estadisticos(
+ datos2,
+  "T2",
+  "Distribución Turbina 2",
+  "Producción mensual",
+  "Megavatio-hora(MWh)")
+```
+
+...
+
+```{r}
+
+boxplot_estadisticos(
+ datos2,
+  "T3",
+  "Distribución Turbina 3",
+  "Producción mensual",
+  "Megavatio-hora(MWh)")
+```
+
+...
+
+```{r}
+
+boxplot_estadisticos(
+ datos2,
+  "T4",
+  "Distribución Turbina 4",
+  "Producción mensual",
+  "Megavatio-hora(MWh)")
+```
+
+...
+
+```{r}
+
+boxplot_estadisticos(
+ datos2,
+  "T5",
+  "Distribución Turbina 5",
+  "Producción mensual",
+  "Megavatio-hora(MWh)")
+```
+
+...
+
+...
+
+\noindent\textbf{Pregunta 7. Ajuste un modelo de regresión lineal simple para explicar la producción usando la variable de turbina ¿A qué es igual el R2 del modelo ajustado? ¿Cómo interpreta los parámetros estimados del modelo? ¿Cuál es la categoría de referencia pra el modelo ajustado?}
+
+```{r}
+
+
+```
+
+...
+
+\noindent\textbf{Pregunta 8. Mediante los parámetros del modelo ajustado, ¿cuál es la producción promedio de la turbina 4? verifique el resultado calculando el promedio simple para las observaciones de la turbina en cuestión.}
+
+```{r}
+```
+
+...
+
+\noindent\textbf{Pregunta 9. Determine mediante una prueba estadística apropiada si existen diferencias significativas entre la producción promedio de energía de las turbinas. ¿A qué es igual el valor del estadístico F en la prueba de hipótesis correspondiente?}
+
+```{r }
+
+```
+
+...
+
+\noindent\textbf{Pregunta 10. Encuentre los residuales del modelo ajustado y con estos realice una estimación kernel de la densidad (como lo vimos en la primera sesión de clase) junto a un histograma. ¿Encuentra una distribución conocida para los residuales del modelo?}
+
+```{r }
+
+
+```
+
+...
