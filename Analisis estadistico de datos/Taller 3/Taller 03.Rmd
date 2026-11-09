@@ -93,31 +93,31 @@ datos = read.csv("datos_taller_03.csv", sep=";") %>% as_tibble() %>%
 dim(datos)
 ```
 
-\noindent\textbf{Pregunta 1. Mediante la función `GGally::ggpairs`, grafique los diagramas de dispersión bivariados para el conjunto de datos. ¿Qué tipo de relación observa entre cada par de variables? ¿Visualmente considera que las variables Solar_electricity_net_generation_BKWH y Wind_electricity_net_generation_BKWH presentan varianza constante, (también llamada homoscedasticidad) a través de los valores de la variable GDP_USD_PER_CAPITA?}
+\noindent\textbf{Pregunta 1. Mediante la función `GGally::ggpairs`, grafique los diagramas de dispersión bivariados para el conjunto de datos. ¿Qué tipo de relación observa entre cada par de variables? ¿Visualmente considera que las variables Solar\_electricity\_net\_generation\_BKWH y Wind\_electricity\_net\_generation\_BKWH presentan varianza constante, (también llamada homoscedasticidad) a través de los valores de la variable GDP\_USD\_PER\_CAPITA?}
 
-```{r Rel_Variables}
+```{r Graf_dispersión}
 
-...
+ggpairs(datos)
 
 ```
 
 ....
 
-\noindent\textbf{Pregunta 2. Para explicar el PIB per capita (GDP_USD_PER_CAPITA) a través de las variables en la tabla `datos` de manera simultánea, ajuste un modelo de regresión con todas las variables explicativas e interprete la salida del mismo con la ayuda de la función `summary()`. ¿Cómo interpretaría los coeficientes estimados del modelo? ¿Cuál variable parece ser más importante para explicar el GDP_USD_PER_CAPITA?}
+\noindent\textbf{Pregunta 2. Para explicar el PIB per capita (GDP\_USD\_PER\_CAPITA) a través de las variables en la tabla `datos` de manera simultánea, ajuste un modelo de regresión con todas las variables explicativas e interprete la salida del mismo con la ayuda de la función `summary()`. ¿Cómo interpretaría los coeficientes estimados del modelo? ¿Cuál variable parece ser más importante para explicar el GDP\_USD\_PER\_CAPITA?}
 
 ```{r}
 
-...
+mod <- lm(GDP_USD_PER_CAPITA ~ 
+            Solar_electricity_net_generation_BKWH + 
+            Wind_electricity_net_generation_BKWH, 
+          data=datos)
+
+summary(mod)
 ```
 
 ...
 
 \noindent\textbf{Pregunta 3. Según la salida de `summary()` anterior, ¿cuál es el valor del estadístico F del modelo?. Dado su valor y el valor p asociado del modelo, ¿son estas variables en conjunto relevantes desde el punto de vista estadístico para explicar el PIB?.}
-
-```{r}
-
-
-```
 
 ...
 
@@ -131,10 +131,11 @@ dim(datos)
 
 ```{r}
 
-
+par(mfrow=c(2,2))
+plot(mod)
 ```
 
-\noindent\textbf{Pregunta 5. Estime ahora un modelo de regresión lineal múltiple, pero esta vez realice una transformación de logaritmo sobre la variable de respuesta `log(GDP_USD_PER_CAPITA)`. ¿Qué pasa ahora con el modelo cuando realizamos esta transformación? ¿Cuál modelo presenta residuales más cercanos a la distribución normal?}
+\noindent\textbf{Pregunta 5. Estime ahora un modelo de regresión lineal múltiple, pero esta vez realice una transformación de logaritmo sobre la variable de respuesta `log(GDP\_USD\_PER\_CAPITA)`. ¿Qué pasa ahora con el modelo cuando realizamos esta transformación? ¿Cuál modelo presenta residuales más cercanos a la distribución normal?}
 
 ```{r}
 
@@ -147,11 +148,11 @@ dim(datos)
 
 ## Anova
 
-En el conjunto de datos `turbinas_prod.csv` cuenta con la producción mensual promedio de 5 turbinas eólicas ubicadas en la Guajira. Esta información se tiene por un total de 12 meses para cada turbina y la medición esta dada en MWh. Se busca determinar si existen diferencias significativas entre la producción promedio de energía de las turbinas.
+En el conjunto de datos `turbinas\_prod.csv` cuenta con la producción mensual promedio de 5 turbinas eólicas ubicadas en la Guajira. Esta información se tiene por un total de 12 meses para cada turbina y la medición esta dada en MWh. Se busca determinar si existen diferencias significativas entre la producción promedio de energía de las turbinas.
 
 ```{r lectura2}
 
-datos2 <- read.csv("turbinas_prod.csv", row.names=1, sep=",")
+datos2 <- read.csv("turbinas_prod.csv", sep=",")
 ```
 
 \noindent\textbf{Pregunta 6. Realice el boxplot de producción para las diferentes turbinas y determine visualmente si observa diferencias en la producción de energía de las 5 turbinas. ¿Parece haber varianza constante en las observaciones de las turbinas?}
@@ -297,6 +298,18 @@ boxplot_estadisticos(
 
 ```{r}
 
+# Cambiar el formato de los datos de ancho a largo
+
+datos22 <- pivot_longer(datos2, cols=c(T1,T2,T3,T4,T5),
+                        names_to='Turbina',
+                        values_to='Producción_Mensual_Promedio')
+
+```
+
+```{r}
+
+reg <- lm(Producción_Mensual_Promedio ~ Turbina, data = datos22)
+summary(reg)
 
 ```
 
