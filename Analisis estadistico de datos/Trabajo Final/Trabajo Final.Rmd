@@ -1,0 +1,713 @@
+---
+title: "Identificación de perfiles de alojamientos turísticos en Bogotá mediante modelos de mezclas gaussianas y el algoritmo Expectation-Maximization"
+subtitle: "Análisis Estadístico de Datos - Trabajo final"
+author: "Adriana Porras, Alejandra Niño, Bayron Morales, Juliana Cárdenas"
+output:
+  pdf_document:
+    latex_engine: xelatex
+geometry:
+  - top=3.3cm
+  - bottom=2.5cm
+  - left=2.5cm
+  - right=2.5cm
+  - headheight=1.4cm
+  - headsep=0.7cm
+header-includes:
+  - '\usepackage{fancyhdr}'
+  - '\usepackage{lastpage}'
+  - '\definecolor{grisur}{HTML}{808080}'
+  - '\pagestyle{fancy}'
+  - '\fancyhf{}'
+  - '\fancyhead[L]{\includegraphics[height=1.2cm]{logo_ur.png}}'
+  - '\fancyhead[R]{\color{grisur}\small Escuela de Ciencias e Ingeniería\\ Análisis Estadístico de Datos}'
+  - '\renewcommand{\headrulewidth}{0pt}'
+  - '\fancyfoot[L]{\color{grisur}\footnotesize Universidad del Rosario · Bogotá D.C., Colombia}'
+  - '\fancyfoot[R]{\color{grisur}\footnotesize Página \thepage\ de \pageref{LastPage}}'
+  - '\renewcommand{\footrule}{{\color{grisur}\hrule width\headwidth height 0.4pt}\vspace{4pt}}'
+  - '\makeatletter\let\ps@plain\ps@fancy\makeatother'
+---
+
+```{r setup, include=FALSE}
+# Mostrar el código de cada bloque en el documento final
+knitr::opts_chunk$set(
+	echo = TRUE,
+	fig.align = "center",
+	out.width = "100%",
+	message = FALSE,
+	warning = FALSE,
+	fig.path = "figuras/",
+	dev = "png",
+	dpi = 200
+)
+Sys.setlocale("LC_CTYPE", "Spanish_Colombia.utf8")
+```
+
+```{r librerias, message=FALSE, warning=FALSE, paged.print=FALSE}
+
+# Instalación de librerias en caso de no tenerlas
+# install.packages("tidyverse")
+# install.packages("mclust")
+
+# Ejecución de librerias
+# mclust se carga antes de tidyverse porque también tiene una función count()
+# y así la que queda activa es la de tidyverse
+library(mclust)
+library(tidyverse)
+```
+
+Versiones usadas: R `r getRversion()`, tidyverse `r packageVersion("tidyverse")` y mclust `r packageVersion("mclust")`.
+
+```{r configuracion}
+
+# Valores que se pueden cambiar sin tocar el resto del código
+semilla    <- 123       # semilla para que los resultados se repitan
+k_grupos   <- 4         # número de grupos que se usa en los tres métodos
+precio_max <- 5000000   # precio por noche (COP) por encima del cual se descarta el anuncio
+n_muestra  <- 2000      # tamaño de la muestra para el agrupamiento jerárquico
+```
+
+```{r colores}
+
+# Colores usados en todos los gráficos del trabajo
+rojo        <- "#DA0921"
+rojo_oscuro <- "#950606"
+
+# Un color por grupo, el mismo en todos los gráficos
+colores_grupos <- c("#2a78d6", "#DA0921", "#199e70", "#c98500", "#6250d6", "#e87ba4")
+
+# Tema común de los gráficos
+tema <- theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 13, hjust = 0.5),
+    plot.subtitle = element_text(size = 10, hjust = 0.5),
+    axis.title = element_text(face = "bold"),
+    panel.grid.minor = element_blank()
+  )
+
+# Función para escribir los números con punto de miles y coma decimal
+miles <- function(x) {
+  format(x, big.mark = ".", decimal.mark = ",", scientific = FALSE, trim = TRUE)
+}
+```
+
+------------------------------------------------------------------------
+
+## Introducción
+
+En Bogotá hay cerca de veinte mil anuncios de alojamiento en Airbnb. Entre ellos hay habitaciones compartidas, apartamentos pequeños para una o dos personas y casas completas para grupos grandes, con precios y condiciones muy distintas. En este trabajo buscamos si esos anuncios se pueden reunir en perfiles y qué caracteriza a cada uno.
+
+La pregunta que guía el trabajo es la siguiente: ¿Es posible identificar perfiles diferenciados de alojamientos turísticos en Bogotá a partir de sus características económicas, capacidad y disponibilidad, utilizando modelos de mezclas gaussianas estimados mediante Expectation-Maximization?
+
+El objetivo general es aplicar un modelo de mezclas gaussianas, estimado mediante el algoritmo Expectation-Maximization, para identificar y caracterizar perfiles de alojamientos turísticos publicados en Airbnb en Bogotá. Los objetivos específicos son:
+
+1. Realizar un análisis exploratorio de las características de los alojamientos.
+2. Identificar variables cuantitativas relevantes para aplicar GMM.
+3. Estimar diferentes modelos de mezclas gaussianas mediante EM.
+4. Determinar el número de componentes y la estructura de covarianza apropiados.
+5. Caracterizar los perfiles identificados mediante probabilidades de pertenencia.
+6. Evaluar la calidad y estabilidad de los resultados y comparar el modelo con K-Means.
+
+Usamos los datos públicos de Inside Airbnb [1]. El modelo de mezcla gaussiana (GMM) aparece en la sesión 4 del curso como el método suave más importante de agrupamiento [2]. Aquí lo aplicamos y lo comparamos con K-means y con el agrupamiento jerárquico, los dos métodos que trabajamos en clase, sobre las mismas variables.
+
+------------------------------------------------------------------------
+
+## Datos
+
+Inside Airbnb publica cada cierto tiempo una copia de los anuncios de Airbnb por ciudad, con licencia CC BY 4.0 [1]. Usamos la copia de Bogotá del 14 de septiembre de 2026. El archivo original trae 90 columnas por anuncio. En `datos/airbnb_bogota.csv` están las 14 que sirven para este trabajo, sin datos de los anfitriones.
+
+```{r crear-datos, eval=FALSE}
+
+# Así se obtuvo el archivo reducido a partir de la descarga original (listings.csv.gz)
+original <- read_csv("listings.csv.gz", col_types = cols(.default = col_character()))
+
+original %>%
+  select(id, neighbourhood_cleansed, latitude, longitude, room_type, price,
+         accommodates, bedrooms, beds, minimum_nights, availability_365,
+         number_of_reviews, review_scores_rating, reviews_per_month) %>%
+  write_csv("datos/airbnb_bogota.csv")
+```
+
+```{r leer-datos}
+
+# Leer los datos. El id se lee como texto porque tiene hasta 19 dígitos
+datos_orig <- read_csv("datos/airbnb_bogota.csv", col_types = cols(id = col_character()))
+
+# El precio viene como texto ("$274,830.78") y se pasa a número
+datos_orig <- datos_orig %>%
+  mutate(price = parse_number(price))
+
+# Revisar tamaño de la base: anuncios y variables
+dim(datos_orig)
+
+# Valores faltantes en cada variable
+colSums(is.na(datos_orig))
+```
+
+Hay `r sum(is.na(datos_orig$price))` anuncios sin precio y `r sum(is.na(datos_orig$minimum_nights))` sin noches mínimas, que no se pueden usar. Antes de quitar algo más miramos los precios más altos.
+
+```{r precios-altos}
+
+# Los 12 precios por noche más altos, en pesos
+datos_orig %>%
+  arrange(desc(price)) %>%
+  select(neighbourhood_cleansed, room_type, accommodates, price) %>%
+  head(12)
+```
+
+Hay precios por noche de cientos de millones de pesos, que no son tarifas reales. Dejamos por fuera los anuncios con precio mayor a `r miles(precio_max)` pesos por noche, que son `r sum(datos_orig$price > precio_max, na.rm = TRUE)`.
+
+```{r limpiar-datos}
+
+# Quitar los anuncios sin precio, sin noches mínimas o con precio por encima del tope
+datos <- datos_orig %>%
+  filter(!is.na(price), !is.na(minimum_nights), price <= precio_max)
+
+# Tamaño de la base depurada
+dim(datos)
+```
+
+\noindent\textbf{PENDIENTE (bloque A).} Revisar con la tabla de precios más altos si el tope de `r miles(precio_max)` pesos es razonable y decir por qué se deja o se cambia.
+
+...
+
+Para agrupar usamos cinco variables: el precio por noche, la capacidad, las noches mínimas de estadía, los días disponibles en el año y el número de reseñas. El precio, las noches mínimas y las reseñas tienen colas muy largas y por eso entran en logaritmo. El número de habitaciones no entra porque el `r miles(round(100 * mean(datos$bedrooms == 1, na.rm = TRUE), 1))` % de los anuncios tiene una sola habitación y su correlación con la capacidad es `r miles(round(cor(datos$bedrooms, datos$accommodates, use = "complete.obs"), 2))`. El tipo de alojamiento y la localidad no entran en los modelos y sirven después para describir los grupos.
+
+```{r variables}
+
+# Variables del análisis. El logaritmo acorta las colas largas
+datos_vars <- datos %>%
+  transmute(
+    log_precio  = log(price),
+    capacidad   = accommodates,
+    log_noches  = log(minimum_nights),
+    disponibles = availability_365,
+    log_resenas = log1p(number_of_reviews)
+  )
+
+# Estandarizar para que todas las variables pesen igual
+datos_esc <- scale(datos_vars)
+
+summary(datos_vars)
+
+# Nombres de las variables para los gráficos
+nombres_vars <- c(
+  log_precio  = "Precio por noche (log)",
+  capacidad   = "Capacidad (personas)",
+  log_noches  = "Noches mínimas (log)",
+  disponibles = "Días disponibles al año",
+  log_resenas = "Reseñas (log de 1 + n)"
+)
+```
+
+------------------------------------------------------------------------
+
+## Descripción
+
+Primero miramos cada variable por separado y después la relación entre ellas.
+
+```{r fig-distribuciones, fig.height=4.6}
+
+# PENDIENTE (bloque A): histograma de cada una de las cinco variables de datos_vars, todas
+# en un mismo gráfico con facet_wrap(). Para eso los datos se pasan a formato largo con
+# pivot_longer(). Los nombres de los paneles están en nombres_vars.
+```
+
+```{r resumen-datos}
+
+# PENDIENTE (bloque A): con datos, en las unidades originales, calcular
+# - la mediana del precio, la capacidad, las noches mínimas, los días disponibles y las reseñas
+# - el porcentaje de anuncios de cada tipo de alojamiento (room_type)
+# - el porcentaje de anuncios que piden una noche mínima, que piden treinta, que son para dos
+#   personas, que no tienen reseñas y que están disponibles los 365 días
+```
+
+\noindent\textbf{PENDIENTE (bloque A).} Describir qué muestran las distribuciones: qué valores se repiten mucho y qué dice eso de los anuncios.
+
+...
+
+```{r fig-correlaciones, fig.height=4.2, out.width="80%"}
+
+# PENDIENTE (bloque A): matriz de correlaciones de datos_vars con cor() y un mapa de calor
+# con geom_tile(), con el valor de cada correlación escrito en su celda.
+```
+
+\noindent\textbf{PENDIENTE (bloque A).} Decir qué pares de variables están más relacionados y qué significa eso en estos datos.
+
+...
+
+------------------------------------------------------------------------
+
+## Componentes principales
+
+El análisis de componentes principales (ACP) resume las cinco variables en combinaciones que recogen la mayor parte de la variación. Aquí sirve para ver los anuncios en un plano. Los grupos de las secciones siguientes se calculan con las cinco variables estandarizadas y no con las componentes.
+
+```{r acp}
+
+# ACP sobre las variables estandarizadas
+acp <- prcomp(datos_vars, scale. = TRUE)
+summary(acp)
+
+# Peso de cada variable en las componentes
+round(acp$rotation, 2)
+```
+
+```{r fig-acp-varianza, fig.height=3.4, out.width="80%"}
+
+# PENDIENTE (bloque A): gráfico de barras con el porcentaje de la varianza que explica cada
+# componente. Sale de acp$sdev.
+```
+
+```{r fig-acp-plano, fig.height=4.8}
+
+# PENDIENTE (bloque A): primer plano factorial. Las coordenadas de los anuncios están en
+# acp$x[, 1:2] y las flechas de las variables salen de acp$rotation[, 1:2]. En el título de
+# cada eje va el porcentaje de varianza de la componente.
+```
+
+\noindent\textbf{PENDIENTE (bloque A).} Interpretar las dos primeras componentes con los pesos de las variables y decir cuánta variación recoge el plano.
+
+...
+
+------------------------------------------------------------------------
+
+## K-means
+
+K-means reparte los anuncios en k grupos y deja cada uno en el grupo cuyo centro le queda más cerca. Hay que decirle cuántos grupos buscar. Para escogerlo miramos cuánto se reduce la variación dentro de los grupos al aumentar k, como en clase.
+
+```{r fig-kmeans-codo, fig.height=3.6, out.width="85%"}
+
+# Variación total de los datos estandarizados
+var_total <- sum(datos_esc^2)
+
+# Reducción de la variación para k de 1 a 10
+set.seed(semilla)
+reduccion <- sapply(1:10, function(k) {
+  var_total - kmeans(datos_esc, centers = k, nstart = 15, iter.max = 100)$tot.withinss
+})
+
+codo <- tibble(k = 1:10, porcentaje = 100 * reduccion / var_total)
+round(codo$porcentaje, 1)
+
+# PENDIENTE (bloque B): graficar el codo con la tabla codo (k contra porcentaje) y marcar
+# k_grupos con una línea vertical.
+```
+
+\noindent\textbf{PENDIENTE (bloque B).} Decir dónde está el codo y por qué trabajamos con `r k_grupos` grupos.
+
+...
+
+```{r kmeans}
+
+# K-means con el número de grupos escogido
+set.seed(semilla)
+tiempo_km <- system.time(
+  km <- kmeans(datos_esc, centers = k_grupos, nstart = 25, iter.max = 100)
+)
+
+# Tamaño de los grupos
+table(km$cluster)
+```
+
+Para describir los grupos usamos las medianas de cada variable en sus unidades originales y el porcentaje de alojamientos enteros. La misma tabla sirve después para los otros métodos.
+
+```{r kmeans-resumen}
+
+# PENDIENTE (bloque B): tabla con una fila por grupo de K-means (km$cluster) con el número de
+# anuncios, su porcentaje, las medianas de precio, capacidad, noches mínimas, días disponibles
+# y reseñas, y el porcentaje de alojamientos enteros (room_type == "Entire home/apt").
+# Conviene escribirla como función, porque en Perfiles se usa la misma con los grupos del GMM.
+```
+
+```{r fig-kmeans-plano, fig.height=4.8}
+
+# PENDIENTE (bloque B): los anuncios en el primer plano factorial (acp$x[, 1:2]), con un
+# color por grupo de K-means. Los colores de los grupos están en colores_grupos.
+```
+
+\noindent\textbf{PENDIENTE (bloque B).} Describir cada grupo de K-means con la tabla de medianas.
+
+...
+
+------------------------------------------------------------------------
+
+## Agrupamiento jerárquico
+
+El agrupamiento jerárquico une paso a paso las observaciones más parecidas y el resultado se lee en un dendrograma. Necesita la distancia entre todos los pares de observaciones. Con `r miles(nrow(datos))` anuncios serían `r miles(choose(nrow(datos), 2))` distancias, así que lo aplicamos a una muestra aleatoria de `r miles(n_muestra)` anuncios.
+
+```{r jerarquico-muestra}
+
+# Muestra aleatoria de anuncios
+set.seed(semilla)
+muestra <- sample(nrow(datos_esc), n_muestra)
+
+# Distancias y agrupamiento jerárquico con enlace completo
+tiempo_jer <- system.time({
+  distancias <- dist(datos_esc[muestra, ])
+  jer <- hclust(distancias, method = "complete")
+})
+```
+
+```{r fig-dendrograma, fig.height=4.2}
+
+# PENDIENTE (bloque B): dendrograma de jer, sin etiquetas, con el corte en k_grupos grupos
+# marcado con rect.hclust().
+```
+
+```{r jerarquico}
+
+# Cortar el árbol y ver el tamaño de los grupos
+grupos_jer <- cutree(jer, k = k_grupos)
+table(grupos_jer)
+```
+
+\noindent\textbf{PENDIENTE (bloque B).} Leer el dendrograma y decir qué tan parejos quedan los grupos al cortar en `r k_grupos`. Comparar con el enlace promedio (`method = "average"`), como en clase.
+
+...
+
+La tabla de concordancia cruza los grupos de los dos métodos en los mismos anuncios. Los números de grupo no se corresponden entre métodos. Lo que importa es si cada fila se concentra en una sola columna. El índice de Rand ajustado resume la tabla en un número: vale 1 cuando los dos métodos forman los mismos grupos y queda cerca de 0 cuando coinciden lo que se esperaría por azar [3].
+
+```{r concordancia-jerarquico}
+
+# Tabla de concordancia entre el jerárquico y K-means en la muestra
+table(Jerarquico = grupos_jer, K_means = km$cluster[muestra])
+
+# Índice de Rand ajustado
+adjustedRandIndex(grupos_jer, km$cluster[muestra])
+```
+
+\noindent\textbf{PENDIENTE (bloque B).} Decir cuánto coinciden K-means y el agrupamiento jerárquico con la tabla de concordancia.
+
+...
+
+------------------------------------------------------------------------
+
+## Modelo de mezcla gaussiana
+
+K-means y el agrupamiento jerárquico son métodos duros: cada anuncio queda en un solo grupo. El modelo de mezcla gaussiana es un método suave. Supone que los datos vienen de varias distribuciones normales mezcladas y le da a cada observación una probabilidad de pertenecer a cada grupo [2]. La densidad del modelo es
+
+$$f(x) = \sum_{k=1}^{K} \pi_k \, N_p(x \mid \mu_k, \Sigma_k)$$
+
+Cada grupo k tiene un peso $\pi_k$, que es la parte de los datos que le corresponde, un centro $\mu_k$ y una matriz de covarianzas $\Sigma_k$. Esa matriz le da a cada grupo su propia forma y orientación, la de un elipsoide. K-means busca grupos en forma de esfera.
+
+Los parámetros se estiman con el algoritmo EM (Expectation-Maximization) [4], que repite dos pasos. En el paso E calcula, con los parámetros que tiene en ese momento, la probabilidad de que cada observación venga de cada grupo. En el paso M vuelve a calcular los pesos, los centros y las covarianzas, y cada observación cuenta en un grupo según esa probabilidad. Los pasos se repiten hasta que la verosimilitud deja de aumentar. En R usamos el paquete mclust [5], [6].
+
+Para ver la diferencia con K-means simulamos dos grupos alargados, uno al lado del otro, con la normal multivariada que vimos en clase. Los dos tienen la misma matriz de covarianzas y sus centros están cerca.
+
+```{r simulacion}
+
+# Dos grupos alargados con la misma matriz de covarianzas
+Sigma <- matrix(c(2, 1.7, 1.7, 2), 2)
+
+set.seed(semilla)
+grupo_a <- MASS::mvrnorm(300, mu = c(0, 0), Sigma = Sigma)
+grupo_b <- MASS::mvrnorm(300, mu = c(1.5, -1.5), Sigma = Sigma)
+
+sim <- rbind(grupo_a, grupo_b)
+colnames(sim) <- c("x1", "x2")
+real <- rep(1:2, each = 300)
+
+# K-means y GMM con dos grupos
+set.seed(semilla)
+km_sim <- kmeans(sim, centers = 2, nstart = 25)
+gmm_sim <- Mclust(sim, G = 2, modelNames = "VVV", verbose = FALSE)
+
+# Grupos reales contra los que encuentra cada método
+table(Real = real, K_means = km_sim$cluster)
+table(Real = real, GMM = gmm_sim$classification)
+
+# Índice de Rand ajustado de cada método con los grupos reales
+round(c(
+  K_means = adjustedRandIndex(real, km_sim$cluster),
+  GMM     = adjustedRandIndex(real, gmm_sim$classification)
+), 3)
+```
+
+```{r fig-simulacion, fig.height=3.9}
+
+# PENDIENTE (bloque C): los puntos de sim en tres paneles: simulación, K-means y GMM. Cada
+# punto lleva el color de su probabilidad de ser del grupo 1, de azul (0) a rojo (1) pasando
+# por gris (0.5). En la simulación la probabilidad es 1 o 0 según real, en K-means según
+# km_sim$cluster y en el GMM está en gmm_sim$z. Ojo: el grupo 1 de cada método no tiene que
+# ser el grupo 1 de la simulación.
+```
+
+\noindent\textbf{PENDIENTE (bloque C).} Explicar por qué K-means corta mal estos datos y el GMM no, y qué muestran los puntos grises del tercer panel.
+
+...
+
+------------------------------------------------------------------------
+
+## Mezcla gaussiana en los datos de Bogotá
+
+Ajustamos el modelo a las cinco variables estandarizadas, las mismas de K-means. El primer intento usa la forma más general, en la que cada grupo tiene su propia matriz de covarianzas (mclust la llama VVV), con uno a nueve grupos.
+
+```{r gmm-intento}
+
+# Primer intento: BIC del modelo general para 1 a 9 grupos
+set.seed(semilla)
+intento <- mclustBIC(datos_esc, G = 1:9, modelNames = "VVV", verbose = FALSE)
+round(intento[, "VVV"])
+```
+
+A partir de `r min(which(is.na(intento[, "VVV"])))` grupos el resultado es NA, es decir, el modelo no se pudo estimar. Pasa porque muchos anuncios repiten exactamente el mismo valor, como una noche mínima, dos personas o cero reseñas. Un grupo formado por anuncios que comparten ese valor no tiene variación en esa variable y su matriz de covarianzas no se puede invertir. Para este caso mclust permite poner una distribución previa sobre las covarianzas, con `priorControl()`, que evita que eso pase [7].
+
+Para comparar modelos usamos el criterio de información bayesiano (BIC), que premia el ajuste a los datos y castiga el número de parámetros [8]. En mclust un BIC más alto es mejor. Comparamos tres formas para las covarianzas de los grupos. La primera (EII) usa esferas del mismo tamaño y es la más parecida a K-means. La segunda (VVI) usa elipses alineadas con los ejes. La tercera (VVV) deja que cada grupo tenga su tamaño, su forma y su orientación, como en la fórmula.
+
+```{r gmm-bic}
+
+# BIC de tres formas de covarianza para 1 a 9 grupos, con la distribución previa
+set.seed(semilla)
+formas <- mclustBIC(datos_esc, G = 1:9, modelNames = c("EII", "VVI", "VVV"),
+                    prior = priorControl(), verbose = FALSE)
+
+# Pasar el resultado a una tabla
+bic <- tibble(
+  grupos = rep(1:9, times = 3),
+  forma  = rep(c("EII", "VVI", "VVV"), each = 9),
+  BIC    = c(formas[, "EII"], formas[, "VVI"], formas[, "VVV"])
+)
+
+bic %>%
+  pivot_wider(names_from = forma, values_from = BIC) %>%
+  knitr::kable(digits = 0)
+
+# Cuánto sube el BIC del modelo VVV con cada grupo que se agrega
+round(diff(formas[, "VVV"]))
+
+# Número de grupos con el BIC más alto en cada forma
+bic %>%
+  group_by(forma) %>%
+  slice_max(BIC, n = 1)
+```
+
+```{r fig-gmm-bic, fig.height=3.8, out.width="85%"}
+
+# PENDIENTE (bloque C): curva del BIC con la tabla bic (grupos contra BIC, una línea por
+# forma) y una línea vertical en k_grupos.
+```
+
+En las tres formas el BIC más alto queda al final del rango que probamos, con ocho o nueve grupos, así que no usamos el máximo. Leemos dónde se dobla la curva, con la misma lógica del codo de K-means.
+
+\noindent\textbf{PENDIENTE (bloque C).} Justificar con la curva por qué trabajamos con `r k_grupos` grupos y decir qué muestra la comparación de las tres formas.
+
+...
+
+```{r gmm}
+
+# Modelo final: forma VVV con el número de grupos escogido
+set.seed(semilla)
+tiempo_gmm <- system.time(
+  gmm <- Mclust(datos_esc, G = k_grupos, modelNames = "VVV",
+                prior = priorControl(), verbose = FALSE)
+)
+
+# Peso de cada grupo en la mezcla
+round(gmm$parameters$pro, 3)
+
+# Anuncios asignados a cada grupo
+table(gmm$classification)
+
+# Centros de los grupos en las unidades de las variables del análisis
+centros <- gmm$parameters$mean * attr(datos_esc, "scaled:scale") +
+  attr(datos_esc, "scaled:center")
+round(t(centros), 2)
+```
+
+Para cada anuncio el modelo da la probabilidad de pertenecer a cada grupo y lo asigna al de mayor probabilidad. Estas son las de los seis primeros anuncios.
+
+```{r gmm-probabilidades}
+
+# Probabilidades de pertenencia de los seis primeros anuncios
+round(head(gmm$z), 3)
+
+# Probabilidad más alta de cada anuncio
+prob_max <- apply(gmm$z, 1, max)
+
+# Porcentaje de anuncios con probabilidad máxima menor a 0,8 y a 0,6
+round(100 * c(menor_a_0.8 = mean(prob_max < 0.8), menor_a_0.6 = mean(prob_max < 0.6)), 1)
+
+# Porcentaje de anuncios con probabilidad máxima menor a 0,8 en cada grupo
+round(100 * tapply(prob_max < 0.8, gmm$classification, mean), 1)
+```
+
+```{r fig-gmm-probabilidad, fig.height=4.4, out.width="85%"}
+
+# PENDIENTE (bloque C): histograma de prob_max con un panel por grupo del GMM
+# (gmm$classification).
+```
+
+Llamamos dudosos a los anuncios con probabilidad máxima menor a 0,8. La tabla cruza el grupo al que quedaron asignados con el segundo grupo más probable.
+
+```{r gmm-dudosos}
+
+# Segundo grupo más probable de cada anuncio
+segundo <- apply(gmm$z, 1, function(p) order(p, decreasing = TRUE)[2])
+
+# Anuncios dudosos: grupo asignado contra segundo grupo más probable
+dudosos <- prob_max < 0.8
+table(Asignado = gmm$classification[dudosos], Segundo = segundo[dudosos])
+```
+
+\noindent\textbf{PENDIENTE (bloque C).} Decir qué tan seguro está el modelo de las asignaciones y entre qué grupos quedan los anuncios dudosos.
+
+...
+
+------------------------------------------------------------------------
+
+## Perfiles
+
+Con los grupos del GMM describimos los perfiles de alojamiento. La tabla usa las medianas en las unidades originales, igual que en K-means.
+
+```{r perfiles-resumen}
+
+# PENDIENTE (bloque C): la misma tabla de K-means, con los grupos del GMM (gmm$classification).
+```
+
+```{r fig-perfiles, fig.height=4.8}
+
+# PENDIENTE (bloque C): diagramas de caja de las cinco variables de datos_vars en cada grupo
+# del GMM, con un panel por variable. Los nombres de los paneles están en nombres_vars.
+```
+
+En las noches mínimas la mediana dice poco, porque muchos anuncios repiten el mismo valor. Por eso conviene ver qué porcentaje de cada grupo pide una noche, dos o tres, entre cuatro y veintinueve, y treinta o más.
+
+```{r perfiles-noches}
+
+# PENDIENTE (bloque C): esos cuatro rangos de noches mínimas en cada grupo del GMM, en
+# porcentaje por fila. Los rangos se pueden armar con cut().
+```
+
+El tipo de alojamiento y la localidad no entraron en el modelo. Sirven para ver si los grupos también se diferencian en eso.
+
+```{r perfiles-tipo}
+
+# PENDIENTE (bloque C): porcentaje de cada tipo de alojamiento (room_type) en cada grupo
+# del GMM.
+```
+
+```{r perfiles-localidad}
+
+# PENDIENTE (bloque C): en las ocho localidades con más anuncios (neighbourhood_cleansed),
+# el porcentaje de anuncios de cada grupo del GMM.
+```
+
+```{r fig-mapa, fig.height=3.8}
+
+# PENDIENTE (bloque C): mapa de los anuncios (longitude, latitude) con un panel por grupo del
+# GMM. Con coord_quickmap(xlim = c(-74.22, -74.00), ylim = c(4.45, 4.85)) se ve el área
+# urbana. Contar cuántos anuncios quedan por fuera de ese marco.
+```
+
+\noindent\textbf{PENDIENTE (bloque C).} Ponerle nombre a cada perfil y describirlo en dos o tres frases con la tabla de medianas, el tipo de alojamiento y el mapa.
+
+...
+
+------------------------------------------------------------------------
+
+## Comparación de los métodos
+
+Los tres métodos trabajaron con las mismas cinco variables y con `r k_grupos` grupos. Primero cruzamos los grupos de K-means con los del GMM en todos los anuncios.
+
+```{r comparacion}
+
+# Tabla de concordancia entre K-means y el GMM
+conc <- table(K_means = km$cluster, GMM = gmm$classification)
+conc
+
+# Índice de Rand ajustado entre cada par de métodos
+ari <- c(
+  kmeans_gmm        = adjustedRandIndex(km$cluster, gmm$classification),
+  kmeans_jerarquico = adjustedRandIndex(km$cluster[muestra], grupos_jer),
+  gmm_jerarquico    = adjustedRandIndex(gmm$classification[muestra], grupos_jer)
+)
+round(ari, 3)
+
+# Para cada grupo del GMM, el grupo de K-means donde cae la mayor parte y qué porcentaje es
+mayor <- apply(conc, 2, which.max)
+parte <- round(100 * apply(conc, 2, max) / colSums(conc))
+rbind(K_means = mayor, Porcentaje = parte)
+```
+
+```{r fig-comparacion-plano, fig.height=4.4}
+
+# PENDIENTE (Bayron): los grupos de K-means y del GMM en el primer plano factorial, con un
+# panel por método.
+```
+
+Los números de los grupos no se corresponden entre los dos métodos.
+
+El índice de Rand ajustado entre K-means y el GMM es `r miles(round(ari[["kmeans_gmm"]], 2))`: los dos métodos coinciden solo en parte. Coinciden en los anuncios de estadía larga. El `r parte[1]` % del grupo 1 del GMM está en el grupo 4 de K-means, y en los dos grupos la mediana es de 30 noches mínimas. La diferencia más grande está en el grupo 3 de K-means, que tiene el 59 % de los anuncios. El GMM lo reparte casi todo entre su grupo 4, donde todos los anuncios piden una sola noche, y su grupo 3, donde la mayoría pide dos o tres. K-means, en cambio, separa en su grupo 1 los alojamientos grandes y caros, con una mediana de seis personas, y el GMM los deja repartidos sobre todo entre sus grupos 2 y 4.
+
+El agrupamiento jerárquico, que se calculó en la muestra, se parece poco a los otros dos. El índice es `r miles(round(ari[["kmeans_jerarquico"]], 2))` con K-means y `r miles(round(ari[["gmm_jerarquico"]], 2))` con el GMM.
+
+K-means parte de centros escogidos al azar. El GMM de mclust parte de un agrupamiento jerárquico hecho sobre una muestra aleatoria de los datos. Por eso los dos pueden cambiar con la semilla. Repetimos los dos métodos con otras cuatro semillas y comparamos cada resultado con el de la semilla `r semilla`. En el GMM miramos también el BIC de cada solución.
+
+```{r estabilidad}
+
+# Repetir K-means y el GMM con otras semillas y comparar con el resultado principal
+semillas <- c(1, 7, 99, 2026)
+
+estabilidad <- sapply(semillas, function(s) {
+  set.seed(s)
+  km_s <- kmeans(datos_esc, centers = k_grupos, nstart = 25, iter.max = 100)
+  set.seed(s)
+  gmm_s <- Mclust(datos_esc, G = k_grupos, modelNames = "VVV",
+                  prior = priorControl(), verbose = FALSE)
+  c(K_means = adjustedRandIndex(km$cluster, km_s$cluster),
+    GMM     = adjustedRandIndex(gmm$classification, gmm_s$classification),
+    BIC_GMM = gmm_s$bic)
+})
+colnames(estabilidad) <- semillas
+
+# Índice de Rand ajustado de cada semilla con el resultado principal
+round(estabilidad[c("K_means", "GMM"), ], 3)
+
+# BIC del GMM con cada semilla y con la semilla principal
+round(c(estabilidad["BIC_GMM", ], principal = gmm$bic))
+```
+
+K-means da casi exactamente los mismos grupos con las cuatro semillas, con un índice de `r miles(round(min(estabilidad["K_means", ]), 3))` o más. El GMM repite el resultado con tres de ellas y con la semilla 99 llega a grupos distintos, con un índice de `r miles(round(min(estabilidad["GMM", ]), 2))`. Esa solución tiene un BIC más bajo que las otras, es decir, se ajusta peor a los datos, y por eso nos quedamos con la de la semilla `r semilla`. En estos datos el GMM depende más del punto de partida que K-means.
+
+```{r tiempos}
+
+# Tiempo de cómputo de cada método, en segundos
+round(c(
+  K_means    = tiempo_km[["elapsed"]],
+  Jerarquico = tiempo_jer[["elapsed"]],
+  GMM        = tiempo_gmm[["elapsed"]]
+), 1)
+```
+
+El agrupamiento jerárquico se midió sobre la muestra de `r miles(n_muestra)` anuncios y los otros dos métodos sobre los `r miles(nrow(datos))`.
+
+------------------------------------------------------------------------
+
+## Conclusiones y limitaciones
+
+\noindent\textbf{PENDIENTE (Bayron).} Conclusiones del trabajo, cuando estén completos los bloques A, B y C.
+
+...
+
+Los datos son una copia de un solo día, el 14 de septiembre de 2026. Los días disponibles son los que el anfitrión deja abiertos en el calendario y no dicen cuánto se ocupa el alojamiento. El precio es el publicado, que puede ser distinto del que se paga, y el número de reseñas no es el número de reservas. Los perfiles describen cómo se anuncian los alojamientos, no cómo se usan.
+
+Muchos anuncios repiten exactamente el mismo valor en una variable. Eso obligó a usar la distribución previa y hace que dos grupos del GMM se formen alrededor de un solo valor de las noches mínimas: en el grupo 4 todos los anuncios piden una noche y en el grupo 1 casi todos piden treinta o más. El BIC sigue subiendo cuando se agregan grupos, así que `r k_grupos` es el punto donde la curva se dobla y no el número que el BIC señala como mejor. El agrupamiento jerárquico se calculó en una muestra de `r miles(n_muestra)` anuncios. Usamos el mismo número de grupos en los tres métodos para poder compararlos. El resultado del GMM cambia con algunas semillas, como pasó con la 99.
+
+------------------------------------------------------------------------
+
+## Referencias
+
+[1] Inside Airbnb, "Get the Data: Bogotá, Colombia", copia del 14 de septiembre de 2026. Disponible en https://insideairbnb.com/get-the-data/. Consultado el 10 de noviembre de 2026.
+
+[2] A. N. López, material del curso Análisis Estadístico de Datos, sesión 4, Universidad del Rosario, Bogotá, 2026.
+
+[3] L. Hubert y P. Arabie, "Comparing partitions", Journal of Classification, vol. 2, n.º 1, pp. 193-218, 1985.
+
+[4] A. P. Dempster, N. M. Laird y D. B. Rubin, "Maximum likelihood from incomplete data via the EM algorithm", Journal of the Royal Statistical Society: Series B, vol. 39, n.º 1, pp. 1-22, 1977.
+
+[5] L. Scrucca, M. Fop, T. B. Murphy y A. E. Raftery, "mclust 5: Clustering, classification and density estimation using Gaussian finite mixture models", The R Journal, vol. 8, n.º 1, pp. 289-317, 2016.
+
+[6] C. Fraley y A. E. Raftery, "Model-based clustering, discriminant analysis, and density estimation", Journal of the American Statistical Association, vol. 97, n.º 458, pp. 611-631, 2002.
+
+[7] C. Fraley y A. E. Raftery, "Bayesian regularization for normal mixture estimation and model-based clustering", Journal of Classification, vol. 24, n.º 2, pp. 155-181, 2007.
+
+[8] G. Schwarz, "Estimating the dimension of a model", The Annals of Statistics, vol. 6, n.º 2, pp. 461-464, 1978.
