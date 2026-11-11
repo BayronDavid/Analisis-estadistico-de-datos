@@ -93,6 +93,14 @@ datos = read.csv("datos_taller_03.csv", sep=";") %>% as_tibble() %>%
 dim(datos)
 ```
 
+Respecto a la base es ncesario señalar:
+
+-   Se retiraron los países atípicos detectados en el taller anterior.
+
+-   Se especifica del paquete `dplyr` las funciones `filter` y `select` (`dplyr::filter`, `dplyr::select`), esto para evitar *enmascaramientos* con funciones en R base (es decir, funciones con el mismo nombre, pero con funcionalidad diferente). Esto no es siempre necesario, pero es recomendable, particularmente cuando se usan múltiples paquetes en un mismo entorno de trabajo.
+
+-   Se calcula el GDP_USD_PER_CAPITA para estandarizar/normalizar el GDP_USD al tamaño de la población.
+
 \noindent\textbf{Pregunta 1. Mediante la función `GGally::ggpairs`, grafique los diagramas de dispersión bivariados para el conjunto de datos. ¿Qué tipo de relación observa entre cada par de variables? ¿Visualmente considera que las variables Solar\_electricity\_net\_generation\_BKWH y Wind\_electricity\_net\_generation\_BKWH presentan varianza constante, (también llamada homoscedasticidad) a través de los valores de la variable GDP\_USD\_PER\_CAPITA?}
 
 ```{r Graf_dispersión}
@@ -101,7 +109,11 @@ ggpairs(datos)
 
 ```
 
-....
+Antes de analizar los diagramas de dispersión bivariada, vale la pena analizar otra información que brinda la gráfica. La diagonal principal permite observar la distribución de cada variable individualmente. Se observa que la generación solar (Solar\\\_electricity\\\_net\\\_generation\\\_BKWH) y la eólica (Wind\\\_electricity\\\_net\\\_generation\\\_BKWH) tienen una distribución similar, con una concentración importante a la izquierda, lo cual significa que hay muchos países con valores relativamente bajos de generación de este tipo de energías y pocos con valores altos. Por otro lado, el PIB per cápita muestra también una concentración importante a la izquierda, pero contraria a las otras variables, presenta otra fuerte distribución alrededor de los 50000, además, no presenta una caída constante, sino que se mantienen valores altos hasta los 50000 y luego sí decae, lo que implica que muchos países tienen un PIB per cápita entre 0 y 50000.
+
+El segundo conjunto de gráficas se ubican en el triángulo superior y corresponden a los coeficientes de correlación. Estos coeficientes nos permiten responder a la pregunta de ¿Qué tipo de relación observa entre cada par de variables? Todos los coeficientes son positivos, por lo que se presenta una asociación positiva entre cada par de variables, es decir, que cuando aumenta una de las variables, la otra también lo hace, y visceversa, cuando una disminuye, la otra también los hace. La correlación entre la generación de energía eólica y la solar es la más fuerte de las tres (0.402\*), además, es estadísticamente significativa, lo cual significa que los países que generan más energía eólica, tienden, en cierta medida, a generar más energía solar. Es necesario resaltar que, aunque existe una relación, esta es moredada, por lo que no es lo suficientemente fuerte como para afirmar que ambas variables aumentan de manera muy consistente o proporcional. Respecto a estas dos variables y el PIB per cápita, no se observa una asociación importante, ya que ambos valores son cercanos a 0 y no son estadísticamente significativos (0.165 y 0.177).
+
+Finalmente, las gráficas del triángulo inferior permiten analizar si la generación de los dos tipos de generación de energía presentan una varianza constante (homoscedasticidad) a través de los valores del PIB per cápita. A simple vista, se observa que los puntos de la generación eólica y la solar no parecen mantener una distribución horizontal uniforme a lo largo de los valores del PIB per cápita, observándose una concentración importante de países en valores bajos del PIB con algunos valores extremos. Esto indica que podría existir heteroscedasticidad y no homoscedasticidad en las dos variables, es decir, que la varianza de la generación de energía solar y eólica cambia según el PIB per cápita de los países.
 
 \noindent\textbf{Pregunta 2. Para explicar el PIB per capita (GDP\_USD\_PER\_CAPITA) a través de las variables en la tabla `datos` de manera simultánea, ajuste un modelo de regresión con todas las variables explicativas e interprete la salida del mismo con la ayuda de la función `summary()`. ¿Cómo interpretaría los coeficientes estimados del modelo? ¿Cuál variable parece ser más importante para explicar el GDP\_USD\_PER\_CAPITA?}
 
@@ -115,11 +127,23 @@ mod <- lm(GDP_USD_PER_CAPITA ~
 summary(mod)
 ```
 
-...
+Los coeficientes estimados del modelo son:
+
+-   Intercepto: 25415.4
+
+-   Generación de energía solar: 504.1
+
+-   Generación de energía eólica: 207.8
+
+El coeficiente del intercepto representa el PIB per cápita estimado cuando la generación solar y la generación eólica son iguales a cero (25.415,4 unidades monetarias). Es necesario recordar que la base empleada fue filtrada para conservar países con generación solar y eólica mayor que cero, por lo que la interpretación práctica de este coeficiente es limitada.
+
+Respecto a las variables explicativas, se observa que manteniendo constante la generación eólica, un aumento de una unidad en la generación solar se asocia con un aumento estimado de 504,1 unidades en el PIB per cápita. Así mismo, manteniendo constante la generación solar, un aumento de una unidad en la generación eólica se asocia con un aumento estimado de 207,8 unidades en el PIB per cápita. Basandonos solo en este dato, se puede concluir que la generación solar parecer ser más importante para explicar el PIB per cápita, al presentar un coeficiente mayor (504,1), sin embargo, ninguna de las dos variables es estadísticamente significativa al 5%: la generación de energía solar tiene un t value de 0,618 y la generación de energía eólica de 0,521, ambas por encima de 0,05, por lo que no hay evidencia sufiente para afirmar que alguna de las dos sea individualmente relevante para explicar el PIB per cápita.
 
 \noindent\textbf{Pregunta 3. Según la salida de `summary()` anterior, ¿cuál es el valor del estadístico F del modelo?. Dado su valor y el valor p asociado del modelo, ¿son estas variables en conjunto relevantes desde el punto de vista estadístico para explicar el PIB?.}
 
-...
+El valor del estadístico F del modelo es 0,5443, con un p-valor de 0,587. Considerando un nivel de significancia del 5 % (0,05), se observa que el p-valor es superior al nivel establecido. Por lo tanto, no se rechaza la hipótesis nula, lo que indica que no existe evidencia estadística suficiente para afirmar que las variables de generación de energía solar y eólica sean conjuntamente relevantes para explicar el PIB per cápita. En consecuencia, el modelo no resulta estadísticamente significativo en su conjunto.
+
+Adicionalmente, el R2 del modelo (0,04173) indica que este explica aproximadamente el 4,17% de la variabilidad del PIB per cápita y si se considera el R2 ajustado, que tiene en cuenta el número de variables, se obtiene un ajuste del modelo muy bajo (-0,03493).
 
 \noindent\\textbf{Pregunta 4. A través de los gráficos asociados al modelo obtenidos con la función `plot()`, mencione respecto a los supuestos de:
 
@@ -135,10 +159,22 @@ par(mfrow=c(2,2))
 plot(mod)
 ```
 
+El gráfico Q-Q Residuals, ubicado en la parte superior derecha, permite analizar si existe normalidad en los errores. En este caso, se observa que los residuos parecen aproximarse a una distribución normal, ya que la mayoría de los puntos están cerca a la diagonal, aunque se observan algunos valores que se alejan, especialmente en los extremos (por ejemplo, el 13 y el 25). Por tanto, se considera que el supuesto de normalidad se cumple de manera aproximada, aunque no perfectamente.
+
+En los gráficos Residuals vs Fitted y Scale-Location se observa una ligera tendencia descendente en las líneas de ajuste, así como cambios en la dispersión de los residuos a lo largo de los valores ajustados. Esto sugiere la posible presencia de heteroscedasticidad, por lo que el supuesto de varianza constante no parece cumplirse completamente.
+
+El modelo presenta un comportamiento aproximadamente compatible con la normalidad de los errores, pero existen indicios de incumplimiento del supuesto de homoscedasticidad. Por tanto, no se puede afirmar que el modelo satisfaga completamente ambos supuestos.
+
 \noindent\textbf{Pregunta 5. Estime ahora un modelo de regresión lineal múltiple, pero esta vez realice una transformación de logaritmo sobre la variable de respuesta `log(GDP\_USD\_PER\_CAPITA)`. ¿Qué pasa ahora con el modelo cuando realizamos esta transformación? ¿Cuál modelo presenta residuales más cercanos a la distribución normal?}
 
 ```{r}
 
+mod2 <- lm(log(GDP_USD_PER_CAPITA) ~ 
+             Solar_electricity_net_generation_BKWH + 
+             Wind_electricity_net_generation_BKWH, 
+          data=datos)
+
+summary(mod2)
 
 ```
 
@@ -294,7 +330,7 @@ boxplot_estadisticos(
 
 ...
 
-\noindent\textbf{Pregunta 7. Ajuste un modelo de regresión lineal simple para explicar la producción usando la variable de turbina ¿A qué es igual el R2 del modelo ajustado? ¿Cómo interpreta los parámetros estimados del modelo? ¿Cuál es la categoría de referencia pra el modelo ajustado?}
+\noindent\textbf{Pregunta 7. Ajuste un modelo de regresión lineal simple para explicar la producción usando la variable de turbina ¿A qué es igual el R2 del modelo ajustado? ¿Cómo interpreta los parámetros estimados del modelo? ¿Cuál es la categoría de referencia para el modelo ajustado?}
 
 ```{r}
 
@@ -317,10 +353,25 @@ summary(reg)
 
 \noindent\textbf{Pregunta 8. Mediante los parámetros del modelo ajustado, ¿cuál es la producción promedio de la turbina 4? verifique el resultado calculando el promedio simple para las observaciones de la turbina en cuestión.}
 
-```{r}
+Para obtener el promedio estimado de T4, se suma el intercepto y el coeficiente correspondiente a T4:
+
+```         
+633.0908 - 11.4873 = 621.6035 MWh
 ```
 
-...
+Es decir que, la producción promedio estimada de la turbina T4 es 621,6035 MWh
+
+```{r}
+
+# Calcular promedio de la turbina 4
+
+mean(datos2$T4)
+
+```
+
+El promedio simple de la turbina 4 es exactamente igual que el promedio calculado mediante los parámetros del modelo ajustado.
+
+Esto se debe a que el modelo utiliza una variable categórica (Turbina) y estima una media para cada categoría, por lo que no estima una tendencia ni una relación continua, sino simplemente las diferencias entre los promedios de producción de las cinco turbinas, tomando T1 como referencia. Por eso, al sumar el intercepto y el coeficiente de T4, recuperamos su promedio.
 
 \noindent\textbf{Pregunta 9. Determine mediante una prueba estadística apropiada si existen diferencias significativas entre la producción promedio de energía de las turbinas. ¿A qué es igual el valor del estadístico F en la prueba de hipótesis correspondiente?}
 
